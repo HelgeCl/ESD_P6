@@ -1,9 +1,11 @@
 import numpy as np
-import matplotlib.pyplot as plt
+#mport matplotlib.pyplot as plt
 import time
+import uhd
+from scipy.signal import firwin
 
 class BPSK:
-    def __init__(self, fs=1e6, fc=100e3, num_symbols=2):
+    def __init__(self, fs=1e6, fc=100e3, num_symbols=2, alpha=0.5, filter_span=10):
         """
         BPSK modulator/demodulator
         
@@ -17,20 +19,34 @@ class BPSK:
         self.num_symbols = num_symbols
         self.sps = int(fs / 1e4)  # Samples per symbol
         
+        self.alpha=alpha
+        self.filter_span=filter_span
+        num_taps = self.filter_span * self.sps
+        if num_taps % 2 == 0:
+            num_taps += 1
+        
+        self.rrc_filter = firwin(
+            num_taps,
+            cutoff = 1/(2*self.sps),
+            window='hamming',
+            pass_zero=True,
+            scale=True
+        )
+
     def modulate(self, bits):
         """Modulate bits using BPSK"""
         # Map bits to symbols: 0 -> -1, 1 -> +1
         symbols = 2 * bits - 1
-        
         # Upsample
-        upsampled = np.repeat(symbols, self.sps)
-        
+        upsampled = np.zeros(len(symbols) * self.sps, dtype=float)
+        upsampled[::self.sps] = symbols
         # Modulate
-        modulated = upsampled + 0j  # Convert to complex
         
         # Der skal laves noget shaping her
+        shaped_signal = np.convolve(upsampled,self.rrc_filter,mode='same')
 
-        return modulated
+        modulated_signal = shaped_signal + 0j  # Convert to complex
+        return modulated_signal
     
     def demodulate(self, signal):
         """Demodulate BPSK signal"""
@@ -70,7 +86,7 @@ if __name__ == "__main__":
     
     # Calculate BER
     ber = np.mean(bits != recovered_bits)
-    
+    """
     print(f"Pre modulated signal: {bits}")
     print(f"Modulated signal: {signal}")
     print(f"Demodulated signal: {recovered_bits}")
@@ -78,3 +94,4 @@ if __name__ == "__main__":
     print(f"Modulation time: {modulate_time:.6f} seconds")
     print(f"Demodulation time: {demodulate_time:.6f} seconds")
     print(f"Total time: {modulate_time + demodulate_time:.6f} seconds")
+    """
