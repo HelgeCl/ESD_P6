@@ -19,18 +19,18 @@ print("Packet without secondary header (hex):", encoded_packet.hex())
 
 bpsk = BPSK(fs=1e6, fc=100e3, num_symbols=100)
 
-sdr = SDR(master_clock_rate=200e6, tx_gain=10, rx_gain=20)
+sdr = SDR(master_clock_rate=60e6, tx_gain=10, rx_gain=20)
 
 encoded_packet_bits = np.unpackbits(np.frombuffer(encoded_packet, dtype=np.uint8))
 
 #modulated_signal = bpsk.modulate(bits = encoded_packet_bits)
 
-Transmitted_signal = sdr.TX(encoded_packet=encoded_packet)
+Transmitted_signal = sdr.TX(encoded_packet=encoded_packet, channel=0)
 
-print("Transmitted packet (hex):", Transmitted_signal.hex())
+print("Transmitted packet:", Transmitted_signal)
 
-Received_signal = sdr.RX(num_samples=len(Transmitted_signal))
+Received_signal = sdr.RX(num_samples=len(Transmitted_signal), channel=(1, ))
 
 Decoded_packet = decoder.decode(Received_signal)
 
-print("Received packet (hex):", Decoded_packet.hex())
+print("Received packet (hex):", Decoded_packet)

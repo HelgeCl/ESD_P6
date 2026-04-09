@@ -3,7 +3,7 @@ import numpy as np
 from BPSK import BPSK
 class SDR:
     def __init__(self, master_clock_rate=200e6, tx_gain=10, rx_gain=20):
-        self.usrp = uhd.usrp.MultiUSRP("type=b210")
+        self.usrp = uhd.usrp.MultiUSRP()
         self.usrp.set_master_clock_rate(master_clock_rate, 0)
 
         self.usrp.set_tx_gain(tx_gain, 0)
@@ -18,20 +18,20 @@ class SDR:
 
     def TX(self, encoded_packet, channel):
         """Transmit the given signal"""
-        # Ensure signal is in the correct format (complex64)
-
+        # Encodes from SPP
         encoded_packet_bits = np.unpackbits(np.frombuffer(encoded_packet, dtype=np.uint8))
-
+        # Modulates packet using BPSK
         modulated_signal = self.bpsk.modulate(bits = encoded_packet_bits)
         
+        # Checks if the modulated signal is IQ
         if modulated_signal.dtype != np.complex64:
             modulated_signal = modulated_signal.astype(np.complex64)
         
-        
-        
-        # Transmit the signal
-        self.usrp.send(modulated_signal, channel=channel)
-
+        # Transmits the signal via channel x
+        self.usrp.send_waveform(modulated_signal,  
+                                duration=5, 
+                                freq=5.8e9, rate=1e6)
+       
         return modulated_signal  # Return the transmitted signal for reference
 
     def RX(self, num_samples, channel):
@@ -40,7 +40,7 @@ class SDR:
         rx_buffer = np.zeros(num_samples, dtype=np.complex64)
         
         # Receive the signal
-        self.usrp.recv(rx_buffer)
+        rx_buffer =self.usrp.recv_num_samps(num_samps=num_samples, channels=channel, freq=5.8e9, rate=1e6)
         
         demodulated_bits = self.bpsk.demodulate(rx_buffer)
 
