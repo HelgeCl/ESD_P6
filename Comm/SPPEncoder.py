@@ -9,6 +9,7 @@ class SPPEncoder:
         if not (0 <= version <= 7):
             raise ValueError("Version must be a 3-bit integer (0-7)")
         self.version = version
+        self.sync_word = 0x1ACFFC1D  # Standard SPP sync marker (32 bits)
 
     def encode(self, packet_type, apid, seq_flag, sequence_count, data, 
                sec_hdr_flag, sec_hdr_data=b''):
@@ -58,7 +59,7 @@ class SPPEncoder:
         prime_header = struct.pack('>HHH', word1, word2, word3)
         
         # Assemble final packet
-        packet = prime_header + data_field
+        packet = struct.pack('>I', self.sync_word) + prime_header + data_field
         return packet
 
 

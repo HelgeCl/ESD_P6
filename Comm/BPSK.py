@@ -85,8 +85,9 @@ if __name__ == "__main__":
     demodulate_time = time.time() - start_time
     
     # Calculate BER
-    ber = np.mean(bits != recovered_bits)
     """
+    ber = np.mean(bits != recovered_bits)
+    
     print(f"Pre modulated signal: {bits}")
     print(f"Modulated signal: {signal}")
     print(f"Demodulated signal: {recovered_bits}")
