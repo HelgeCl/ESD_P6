@@ -1,7 +1,7 @@
-from SPPEncoder import SPPEncoder
-from SPPDecoder import SPPDecoder
-from BPSK import BPSK
-from SDR import SDR
+from Git.ESD_P6.Comm.SPPEncoder import SPPEncoder
+from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
+from Git.ESD_P6.Comm.BPSK import BPSK
+from Git.ESD_P6.Comm.SDR import SDR
 import numpy as np
 
 encoder = SPPEncoder(version=0)  # CCSDS version 0

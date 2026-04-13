@@ -1,6 +1,6 @@
 import uhd
 import numpy as np
-from BPSK import BPSK
+from Git.ESD_P6.Comm.BPSK import BPSK
 class SDR:
     def __init__(self, master_clock_rate=200e6, tx_gain=10, rx_gain=20):
         self.usrp = uhd.usrp.MultiUSRP()
