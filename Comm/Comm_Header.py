@@ -28,9 +28,3 @@ encoded_packet_bits = np.unpackbits(np.frombuffer(encoded_packet, dtype=np.uint8
 Transmitted_signal = sdr.TX(encoded_packet=encoded_packet, channel=0)
 
 print("Transmitted packet:", Transmitted_signal)
-
-Received_signal = sdr.RX(num_samples=len(Transmitted_signal), channel=(1, ))
-
-Decoded_packet = decoder.decode(Received_signal)
-
-print("Received packet (hex):", Decoded_packet)
