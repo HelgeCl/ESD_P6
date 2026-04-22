@@ -15,18 +15,32 @@ encoded_packet = encoder.encode(
         data=b'Fat ass monkey!',
         sec_hdr_flag=0
     )
+
+# Convert the bytes object into a NumPy array of uint8
+byte_array = np.frombuffer(encoded_packet, dtype=np.uint8)
+
+# Unpack the bits into a flat array of 0s and 1s
+bits = np.unpackbits(byte_array)
 print("Packet without secondary header (hex):", encoded_packet.hex())
 
-bpsk = BPSK(fs=1e6, fc=100e3, num_symbols=100)
+bpsk = BPSK(fs=20e6, fc=5.8e9, num_symbols=100)
 
-sdr = SDR(master_clock_rate=40e6, tx_gain=10, rx_gain=20)
+sdr = SDR(master_clock_rate=40e6, tx_gain=40, rx_gain=20)
 
 encoded_packet_bits = np.unpackbits(np.frombuffer(encoded_packet, dtype=np.uint8))
 
 #modulated_signal = bpsk.modulate(bits = encoded_packet_bits)
 
-for i in range(1000):
-    print(f"Transmission {i}")
-    Transmitted_signal = sdr.TX(encoded_packet=encoded_packet, channel=0)
+print("Encoded packet:", bits)
+
+Transmitted_signal = sdr.TX(encoded_packet=encoded_packet_bits, channel=0)
 
 print("Transmitted packet:", Transmitted_signal)
+
+demodded_signal = bpsk.demodulate(Transmitted_signal)
+
+print("Demodded packet:", demodded_signal)
+
+decoded_signal = decoder.decode(demodded_signal)
+
+print("Decoded packet:", decoded_signal)

@@ -9,17 +9,17 @@ class SDR:
         self.usrp.set_tx_gain(tx_gain, 0)
         self.usrp.set_rx_gain(rx_gain, 0)
         self.usrp.set_tx_gain(30)  # Set gain (adjust as needed)
-        self.usrp.set_tx_rate(1e6)                                   # Set sample rate
+        self.usrp.set_tx_rate(20e6)                                   # Set sample rate
         self.usrp.set_tx_freq(uhd.types.TuneRequest(5.8e9))          # Set center frequency
-        self.usrp.set_rx_rate(1e6)                                   # Set sample rate
+        self.usrp.set_rx_rate(20e6)                                   # Set sample rate
         self.usrp.set_rx_freq(uhd.types.TuneRequest(5.8e9))          # Set center frequency
 
-        self.bpsk = BPSK(fs=1e6, fc=100e3, num_symbols=100)
+        self.bpsk = BPSK(fs=10e6, fc=5.8e9, num_symbols=100)
 
     def TX(self, encoded_packet, channel):
         """Transmit the given signal"""
         # Encodes from SPP
-        encoded_packet_bits = np.unpackbits(np.frombuffer(encoded_packet, dtype=np.uint8))
+        encoded_packet_bits = np.unpackbits(np.frombuffer(encoded_packet, dtype=np.uint8)).astype(np.int8)
         # Modulates packet using BPSK
         modulated_signal = self.bpsk.modulate(bits = encoded_packet_bits)
         
