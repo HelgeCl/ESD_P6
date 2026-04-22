@@ -100,11 +100,11 @@ def receive(sdr: SDR):
 
         # 1. DC Offset Removal & Normalization
         sig = center_normalize(buffer)
-        if sig == False:
+        if isinstance(sig,bool):
             continue  # Skip this loop
 
         sig_cfo_corrected = frequency_correction(sig)
-        if sig_cfo_corrected == False:
+        if isinstance(sig_cfo_corrected,bool):
             continue  # Skip this loop
 
         # 3. Frame Synchronization "Detecting" a preample
