@@ -32,7 +32,7 @@ class SDR:
         self.usrp.set_time_source("internal")
         self.usrp.set_time_now(uhd.types.TimeSpec(0.0))
         self.usrp.set_time_unknown_pps(uhd.types.TimeSpec(0.0))
-        time.sleep(10)  # Time to lock, and "warmup" time
+        #time.sleep(10)  # Time to lock, and "warmup" time
         print("SDR setup done")
 
     def set_channel_rx2(self):
@@ -41,7 +41,7 @@ class SDR:
 
     def set_channel_rxtx(self):
         for chan in self.channels:
-            self.usrp.set_rx_antenna('RX2', chan)
+            self.usrp.set_rx_antenna('TX/RX', chan)
 
     def setup_receiving(self):
         st_args = uhd.usrp.StreamArgs("fc32", "sc16")

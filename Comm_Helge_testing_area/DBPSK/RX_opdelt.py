@@ -1,4 +1,4 @@
-from SDR_class import SDR
+from Git.ESD_P6.SDR_class import SDR
 import numpy as np
 
 SAMP_PER_BIT = 32  # ??? Skal minimum være 16 for at vi kan læse data
@@ -6,8 +6,9 @@ sample_rate = 1e6
 center_freq = 5.8e9
 gain = 60
 
-sdr = SDR(sample_rate, center_freq, gain, gain)
+sdr = SDR(sample_rate, center_freq, gain, gain, [1])
 
+sdr.setup_receiving()
 
 def receive(sdr: SDR):
     # Pre-calculate Barker sequence parameters
@@ -25,6 +26,7 @@ def receive(sdr: SDR):
     while True:
 
         sdr.receive_cont_samples(buffer)
+        #print(buffer)
 
         # 1. DC Offset Removal & Normalization
         sig = buffer - np.mean(buffer)  # Remove DC
