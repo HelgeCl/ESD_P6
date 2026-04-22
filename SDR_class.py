@@ -23,12 +23,10 @@ class SDR:
         self.rx_stream_cmd = None
         self.rx_cont_stream_cmd = None
         self.rx_metadata = None
-        self.__setup_receiving()
 
         self.tx_streamer = None
         self.tx_stream_cmd = None
         self.tx_metadata = None
-        self.__setup_transmit()
 
         self.usrp.set_clock_source("internal")
         self.usrp.set_time_source("internal")
@@ -45,7 +43,7 @@ class SDR:
         for chan in self.channels:
             self.usrp.set_rx_antenna('RX2', chan)
 
-    def __setup_receiving(self):
+    def setup_receiving(self):
         st_args = uhd.usrp.StreamArgs("fc32", "sc16")
         st_args.channels = self.channels
         self.rx_streamer = self.usrp.get_rx_stream(st_args)
@@ -94,7 +92,7 @@ class SDR:
         """
         self.rx_streamer.recv(buffer, self.rx_metadata)
 
-    def __setup_transmit(self):
+    def setup_transmit(self):
         st_args = uhd.usrp.StreamArgs("fc32", "sc16")
         self.tx_streamer = self.usrp.get_tx_stream(st_args)
 
