@@ -4,8 +4,8 @@ import time
 
 
 class SDR:
-    def __init__(self, sample_rate, center_freq, rx_gain, tx_gain):
-        self.channels = [0, 1]
+    def __init__(self, sample_rate, center_freq, rx_gain, tx_gain, chan):
+        self.channels = chan #[0, 1]
 
         self.usrp = uhd.usrp.MultiUSRP()
 
@@ -94,6 +94,7 @@ class SDR:
 
     def setup_transmit(self):
         st_args = uhd.usrp.StreamArgs("fc32", "sc16")
+        st_args.channels = self.channels
         self.tx_streamer = self.usrp.get_tx_stream(st_args)
 
         # Continuous loop transmission
