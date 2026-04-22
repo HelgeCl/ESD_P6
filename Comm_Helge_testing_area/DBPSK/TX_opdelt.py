@@ -1,4 +1,4 @@
-from SDR_class import SDR
+from Git.ESD_P6.SDR_class import SDR
 import numpy as np
 
 # Parameters
@@ -7,8 +7,8 @@ sample_rate = 1e6
 center_freq = 5.8e9
 gain = 60
 
-sdr = SDR(sample_rate, center_freq, gain, gain)
-
+sdr = SDR(sample_rate, center_freq, gain, gain, [0])
+sdr.setup_transmit()
 
 def transmit(sdr: SDR, message):
     # 1. Create a Preamble (13-bit Barker code) for synchronization
