@@ -1,10 +1,14 @@
 from Git.ESD_P6.SDR_class import SDR
 import numpy as np
 
-SAMP_PER_BIT = 32  # ??? Skal minimum være 16 for at vi kan læse data
+
+SAMP_PER_BIT = 32  # Hvor mange samples er der på en bit? I.e. samplerate/SAMP_per_bit = bit rate
 sample_rate = 1e6
 center_freq = 5.8e9
 gain = 60
+DS = 4  # Downsample
+fs_ds = sample_rate / DS
+
 
 sdr = SDR(sample_rate, center_freq, gain, gain, [1])
 
@@ -25,11 +29,11 @@ def frequency_correction(sig):
     # 2. Fine Carrier Frequency Offset (CFO) Correction (Squaring Method)
     # Required as the transmitter and receiver isnt syncronised on frequency.
     # Squaring BPSK removes the modulation, leaving a tone at 2x the CFO
-    N_fft = 40000  # Zero-padded FFT for high frequency resolution
+    N_fft = 8192  # Zero-padded FFT for high frequency resolution
     sig_sq = sig ** 2
     fft_sq = np.fft.fft(sig_sq, n=N_fft)
     fft_sq[0] = 0  # Remove DC component
-    freqs = np.fft.fftfreq(N_fft, d=1/sample_rate)
+    freqs = np.fft.fftfreq(N_fft, d=1/fs_ds)
 
     # Search for the CFO peak within a reasonable +/- 50 kHz range
     valid_idx = np.where(np.abs(freqs) < 100000)[0]
@@ -40,94 +44,124 @@ def frequency_correction(sig):
     cfo_est = freqs[peak_idx] / 2.0
 
     # Generate a complex exponential to completely "de-spin" the buffer
-    t = np.arange(len(sig)) / sample_rate
+    t = np.arange(len(sig)) / fs_ds
     sig_cfo_corrected = sig * np.exp(-1j * 2 * np.pi * cfo_est * t)
     return sig_cfo_corrected
 
 
 def bit_extraction(sig, phase_offset, start_index, bits_to_extract):
-    # 4. Final Phase Correction
-    # Now that spinning is stopped, we fix the static phase offset
-    # As the BPSK must be phase aligned to ensure correct decoding
     corrected_sig = sig * np.exp(-1j * phase_offset)
-    real_sig = np.real(corrected_sig)
 
-    # 5. Bit Extraction
-    bits = []
+    # Calculate all indices at once
+    indices = start_index + np.arange(bits_to_extract) * new_samp
 
-    # Extract exactly 80 bits
-    for i in range(bits_to_extract):
-        idx = start_index + i * SAMP_PER_BIT
-        bits.append('1' if real_sig[idx] > 0 else '0')
+    # Slice the signal and get the real part
+    sample_values = np.real(corrected_sig[indices])
 
+    # Convert to '1's and '0's using a list comprehension or join
+    bits = ['1' if val > 0 else '0' for val in sample_values]
     return bits
 
 
 def bit2ascii(bits):
-    # 6. Decoding
-    bit_str = "".join(bits)
-    decoded_msg = ""
+    """
+    Converts a list of bit strings ['1', '0', ...] to an ASCII string 
+    using vectorized NumPy operations for speed.
+    """
+    # 1. Convert list of strings ['1', '0'] to a NumPy array of integers [1, 0]
+    bit_array = np.array(bits, dtype=np.uint8)
 
-    # Step through 8 bits at a time
-    for i in range(0, len(bit_str), 8):
-        byte = bit_str[i:i+8]
-        char_code = int(byte, 2)
+    # 2. Reshape into a matrix where each row is 8 bits (one byte)
+    # This allows us to process all bytes simultaneously
+    num_bytes = len(bit_array) // 8
+    byte_matrix = bit_array[:num_bytes * 8].reshape(-1, 8)
 
-        # Only keep printable ASCII
-        if 32 <= char_code <= 126:
-            decoded_msg += chr(char_code)
+    # 3. Create a vector of powers of 2: [128, 64, 32, 16, 8, 4, 2, 1]
+    # We multiply the bits by these weights to get the decimal value
+    powers = 2 ** np.arange(7, -1, -1)
 
-    return decoded_msg
+    # 4. Dot product: Multiply bits by powers and sum each row
+    # This results in an array of integers (0-255)
+    ascii_values = np.sum(byte_matrix * powers, axis=1)
+
+    # 5. Filter for printable ASCII (32-126) and convert to string
+    decoded_chars = [chr(b) for b in ascii_values if 32 <= b <= 126]
+
+    return "".join(decoded_chars)
+
+
+new_samp = SAMP_PER_BIT//DS
 
 
 def receive(sdr: SDR):
+
     # Pre-calculate Barker sequence parameters
     barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
-    barker = np.repeat(barker_base, SAMP_PER_BIT)
+    barker = np.repeat(barker_base, new_samp)
 
     # Expected length of message
     EXPECTED_BITS = 80
-    required_len = len(barker) + (EXPECTED_BITS * SAMP_PER_BIT)
+    required_len = len(barker) + (EXPECTED_BITS * new_samp)
+
+    buffer_size = max(20000, required_len)
+    new_buffer = np.zeros(buffer_size, dtype=np.complex64)  # Premade buffer
+    wrap_over = []  # initialize for later use
 
     print("Listening...")
     sdr.start_receive_cont()
-    buffer = np.zeros(10000, dtype=np.complex64)  # Premade buffer
+    test_var = 0
+    while test_var < 100:
+        test_var += 1
 
-    while True:
+        sdr.receive_cont_samples(new_buffer)
+        new_buffer_ds = new_buffer[::DS]
 
-        sdr.receive_cont_samples(buffer)
-        # print(buffer)
+        buffer = np.concatenate((wrap_over, new_buffer_ds))
+
+        wrap_over = buffer[-required_len:]  # the last part of the buffer for wrapover
 
         # 1. DC Offset Removal & Normalization
         sig = center_normalize(buffer)
-        if isinstance(sig,bool):
+        if isinstance(sig, bool):
             continue  # Skip this loop
 
         sig_cfo_corrected = frequency_correction(sig)
-        if isinstance(sig_cfo_corrected,bool):
+        if isinstance(sig_cfo_corrected, bool):
             continue  # Skip this loop
 
         # 3. Frame Synchronization "Detecting" a preample
         corr = np.correlate(sig_cfo_corrected, barker, mode='valid')
         mag_corr = np.abs(corr)
-        peak = np.argmax(mag_corr)
 
-        # Threshold check: Max possible correlation is 416. We use 150 to reject noise.
-        # Also ensure we have enough samples left in the buffer to pull all 80 bits.
-        # NB hvis indført som en cirkulær buffer kunne dette være undgået
-        if mag_corr[peak] > 150 and (peak + required_len < len(sig_cfo_corrected)):
-            phase_offset = np.angle(corr[peak])
+        noise_floor = np.median(mag_corr)
+        peak = np.max(mag_corr)
 
-            # (Take sample at the middle of the signal, and not in the transistion region)
-            start_index = peak + len(barker) + (SAMP_PER_BIT // 2)
-            bits = bit_extraction(sig_cfo_corrected, phase_offset, start_index, EXPECTED_BITS)
+        if peak > 8 * noise_floor:
+            indices = np.where(mag_corr > 0.9 * peak)[0]
+        else:
+            indices = []
 
-            decoded_msg = bit2ascii(bits)
+        # Group consecutive indices to find local peaks (debouncing)
+        if len(indices) > 0:
+            # Find gaps between indices to separate different potential packets
+            diffs = np.diff(indices)
+            starts = np.insert(indices[1:][diffs > len(barker)], 0, indices[0])
 
-            print(decoded_msg)
-            # if decoded_msg.strip():
-            #    print(
-            #        f"CFO Corrected: {cfo_est:5.0f} Hz | Static Phase: {np.degrees(phase_offset):6.1f}° | Decoded: {decoded_msg}")
+            for start_idx in starts:
+                # 1. Refine peak within a small window
+                window_end = min(start_idx + len(barker), len(mag_corr))
+                peak = start_idx + np.argmax(mag_corr[start_idx:window_end])
+
+                # 2. Check boundary
+                if peak + required_len < len(sig_cfo_corrected):
+                    phase_offset = np.angle(corr[peak])
+                    start_bit_idx = peak + len(barker) + (new_samp // 2)
+
+                    bits = bit_extraction(sig_cfo_corrected, phase_offset,
+                                          start_bit_idx, EXPECTED_BITS)
+                    decoded_msg = bit2ascii(bits)
+                    if decoded_msg:
+                        print(f"Decoded: {decoded_msg}")
 
 
 if __name__ == "__main__":
