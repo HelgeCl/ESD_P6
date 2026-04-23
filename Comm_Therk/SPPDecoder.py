@@ -1,4 +1,5 @@
 import struct
+import numpy as np
 from typing import Optional, Tuple
 
 class SPPDecoder:
@@ -29,7 +30,23 @@ class SPPDecoder:
             Dictionary containing decoded packet or None if invalid
         """
         self.buffer.extend(bits)
-        
+        print(self.buffer)
+
+        version = self.buffer[0]
+        for b in range(2):
+            version += self.buffer[0+b]
+        pkt_type = self.buffer[3]
+        sec_header = self.buffer[4]
+        apid = ''
+        for b in range(11):
+            apid = apid + self.buffer[b+4]
+        seq_flags = ''
+        for b in range(2):
+            seq_flags += self.buffer[15+b]
+        seq_count = ''
+        for b in range(14):
+            seq_count += self.buffer[17+b]
+        packet_data
         # Parse primary header
         if len(self.buffer) < (self.PRIMARY_HEADER_SIZE * 8):
             return None
@@ -38,7 +55,7 @@ class SPPDecoder:
         header_bytes = self._bits_to_bytes(header_bits)
         
         packet_length = self._get_packet_length(header_bytes)
-        total_bits_needed = 32 + (packet_length * 8)
+        total_bits_needed = (packet_length * 8)
         
         if len(self.buffer) < total_bits_needed:
             return None
@@ -46,7 +63,7 @@ class SPPDecoder:
         # Extract full packet
         packet_bits = self.buffer[:total_bits_needed]
         self.buffer = self.buffer[total_bits_needed:]
-        
+        #print(packet_bits)
         packet_bytes = self._bits_to_bytes(packet_bits)
         
         return self._parse_spp_header(packet_bytes, packet_length)
