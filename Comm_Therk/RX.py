@@ -103,10 +103,7 @@ def receive():
             # 6. Decoding
             decoded_packet = decoder.decode(bits)  # We can also pass bits to our SPPDecoder for structured parsing
             print(f"Received packet: {decoded_packet}")
-            
-
-            if decoded_msg.strip():
-                print(f"CFO Corrected: {cfo_est:5.0f} Hz | Static Phase: {np.degrees(phase_offset):6.1f}°")
+            print(f"CFO Corrected: {cfo_est:5.0f} Hz | Static Phase: {np.degrees(phase_offset):6.1f}°")
 
 if __name__ == "__main__":
     receive()

@@ -1,0 +1,3 @@
+from Git.ESD_P6.Comm_Therk.TX import transmit
+
+transmit("Fat ass monkey!")  # Test message, can be changed to anything you'd like
