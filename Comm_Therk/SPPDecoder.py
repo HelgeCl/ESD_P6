@@ -46,8 +46,25 @@ class SPPDecoder:
         seq_count = ''
         for b in range(14):
             seq_count += self.buffer[17+b]
-        packet_data
+        packet_data_length = ''
+        for b in range(16):
+            packet_data_length += self.buffer[31+b]
+        packet_data = ''
+        for b in range(int(packet_data_length, 2)*8):
+            packet_data += self.buffer[47+b]
+
+        return {
+            'version': int(version, 2),
+            'type': int(pkt_type,2),
+            'secondary_header': bool(sec_header),
+            'apid': int(apid, 2),
+            'sequence_flags': int(seq_flags, 2),
+            'sequence_count': int(seq_count, 2),
+            'length': int(packet_data_length, 2),
+            'data': packet_data.hex()
+        }
         # Parse primary header
+        """""
         if len(self.buffer) < (self.PRIMARY_HEADER_SIZE * 8):
             return None
         
@@ -67,7 +84,7 @@ class SPPDecoder:
         packet_bytes = self._bits_to_bytes(packet_bits)
         
         return self._parse_spp_header(packet_bytes, packet_length)
-    
+    """""
     
     def _bits_to_bytes(self, bits: list) -> bytes:
         """Convert bit list to bytes"""
