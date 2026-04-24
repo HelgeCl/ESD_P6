@@ -122,12 +122,8 @@ def receive(sdr: SDR):
     new_buffer = np.zeros(buffer_size, dtype=np.complex64)  # Premade buffer
     wrap_over = []  # initialize for later use
 
-    print("Listening...")
     sdr.start_receive_cont()
-    test_var = 0
-    while test_var < 100:
-        test_var += 1
-
+    while True:
         sdr.receive_cont_samples(new_buffer)
         new_buffer_ds = new_buffer[::DS]
 
@@ -151,7 +147,8 @@ def receive(sdr: SDR):
         noise_floor = np.median(mag_corr)
         peak = np.max(mag_corr)
 
-        if peak > 8 * noise_floor:
+        #len(barker) is the theortical maximum correlation (due to normalization)
+        if peak > 8 * noise_floor and peak > (len(barker) * 0.75):
             indices = np.where(mag_corr > 0.9 * peak)[0]
         else:
             indices = []
