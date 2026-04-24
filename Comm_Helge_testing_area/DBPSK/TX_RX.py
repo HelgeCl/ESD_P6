@@ -152,7 +152,7 @@ class RXTX:
             peak = np.max(mag_corr)
 
             # len(barker) is the theortical maximum correlation (due to normalization)
-            if peak > 8 * noise_floor and peak > (len(barker) * 0.75):
+            if peak > 6 * noise_floor and peak > (len(barker) * 0.25):
                 indices = np.where(mag_corr > 0.9 * peak)[0]
             else:
                 indices = []
@@ -219,6 +219,9 @@ class RXTX:
             self.sdr.setup_transmit()
             self.last_state = 'TX'
 
+        carrier = np.ones(20, dtype=np.float32)  # 20 bits of just carrier
+        # required to get enough energy for FFT CFO
+
         msg = str(msg)  # Ensures msg is string
 
         # msg.encode from str to bytes, from buffer changes datatype to uint8
@@ -230,7 +233,7 @@ class RXTX:
         # Float32 to ensure samples is in correct datatype complex 64 for the SDR
 
         # Combine and insert more samples pr. bit
-        payload = np.concatenate((self.barker_base, data_symbols))
+        payload = np.concatenate((carrier, self.barker_base, data_symbols, carrier))
         samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
 
         self.sdr.transmit(samples)
