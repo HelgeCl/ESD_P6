@@ -214,7 +214,7 @@ class RXTX:
 
         msg = str(msg)  # Ensures msg is string
 
-        msg_as_bytes = msg.encode('utf-8')  # String to bytes
+        msg_as_bytes = np.frombuffer(msg.encode('utf-8'), dtype=np.uint8) #msg.encode from str to bytes, from buffer changes datatype to uint8
         bits = np.unpackbits(msg_as_bytes)  # From e.g. 70 to bits e.g. [0, 1, 0, 0, ...]
         data_symbols = (bits.astype(np.float32) * 2) - 1  # from bits to +-1:
         # (1 * 2) - 1 = 1
@@ -226,3 +226,9 @@ class RXTX:
         samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
 
         self.sdr.transmit(samples)
+
+s = RXTX()
+i=0
+while True:
+    i+=1 
+    s.transmit(i)
