@@ -30,9 +30,7 @@ def center_normalize(sig):
 
 def frequency_correction(sig):
     """
-    Frequency correction
-
-
+    Correting a signal w.r.t. frequency offset
     """
     # Carrier Frequency Offset (CFO) Correction
     # Required as the transmitter and receiver isnt syncronised on frequency.
@@ -108,15 +106,14 @@ def bit2ascii(bits):
     return decoded_string
 
 
-def receive(sdr: SDR):
+def receive(sdr: SDR, length: int = 80):
 
-    # Pre-calculate Barker sequence parameters
+    # Calculate barker code:
     barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
     barker = np.repeat(barker_base, SAMPLES_PR_BIT_DS)
 
-    # Expected length of message
-    EXPECTED_BITS = 80
-    required_len = len(barker) + (EXPECTED_BITS * SAMPLES_PR_BIT_DS)
+    # Package length
+    required_len = len(barker) + (length * SAMPLES_PR_BIT_DS)
 
     buffer_size = max(20000, required_len)
     new_buffer = np.zeros(buffer_size, dtype=np.complex64)  # Premade buffer
@@ -124,14 +121,14 @@ def receive(sdr: SDR):
 
     sdr.start_receive_cont()
     while True:
-        sdr.receive_cont_samples(new_buffer)
-        new_buffer_ds = new_buffer[::DS]
 
-        buffer = np.concatenate((wrap_over, new_buffer_ds))
+        sdr.receive_cont_samples(new_buffer)
+        new_buffer_ds = new_buffer[::DS]  # Downsample the received buffer
+
+        buffer = np.concatenate((wrap_over, new_buffer_ds))  # Insert wrap over
 
         wrap_over = buffer[-required_len:]  # the last part of the buffer for wrapover
 
-        # 1. DC Offset Removal & Normalization
         sig = center_normalize(buffer)
         if isinstance(sig, bool):
             continue  # Skip this loop
@@ -140,14 +137,14 @@ def receive(sdr: SDR):
         if isinstance(sig_cfo_corrected, bool):
             continue  # Skip this loop
 
-        # 3. Frame Synchronization "Detecting" a preample
+        # Correlate the signal with the barker code
         corr = np.correlate(sig_cfo_corrected, barker, mode='valid')
-        mag_corr = np.abs(corr)
+        mag_corr = np.abs(corr)  # Magnitude of the complex numbers for comparason
 
         noise_floor = np.median(mag_corr)
         peak = np.max(mag_corr)
 
-        #len(barker) is the theortical maximum correlation (due to normalization)
+        # len(barker) is the theortical maximum correlation (due to normalization)
         if peak > 8 * noise_floor and peak > (len(barker) * 0.75):
             indices = np.where(mag_corr > 0.9 * peak)[0]
         else:
@@ -202,7 +199,7 @@ def receive(sdr: SDR):
                     # NB this index is places in the center of the samples. This ensures we are measuring in the stable region and not the transision
 
                     bits = bit_extraction(sig_cfo_corrected, phase_offset,
-                                          start_bit_idx, EXPECTED_BITS)
+                                          start_bit_idx, length)
                     decoded_msg = bit2ascii(bits)
                     print(f"Decoded: {decoded_msg}")
 
