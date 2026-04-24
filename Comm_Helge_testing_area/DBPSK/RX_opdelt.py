@@ -145,7 +145,7 @@ def receive(sdr: SDR, length: int = 80):
         peak = np.max(mag_corr)
 
         # len(barker) is the theortical maximum correlation (due to normalization)
-        if peak > 8 * noise_floor and peak > (len(barker) * 0.75):
+        if peak > 6 * noise_floor and peak > (len(barker) * 0.25):
             indices = np.where(mag_corr > 0.9 * peak)[0]
         else:
             indices = []
