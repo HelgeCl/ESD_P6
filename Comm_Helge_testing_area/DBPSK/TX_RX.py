@@ -16,6 +16,7 @@ class RXTX:
         self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [1])
         self.last_state = ""
         self.barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
+        self.new_buffer = np.zeros(20000, dtype=np.complex64)
 
     def __center_normalize(self, sig):
         """Centers and normalizes the signal
@@ -103,9 +104,13 @@ class RXTX:
 
         return decoded_string
 
+    def recv_buffer(self, size: int):
+        self.new_buffer = np.zeros(size, dtype=np.complex64)
+
     def receive(self, length: int = 80):
         """Receive a message
         Currently without a timeout
+        if length is larger than 20000 bits, call recv_buffer before with an appropiate size
         """
         if self.last_state != 'RX':
             self.sdr.setup_receiving()
@@ -116,14 +121,16 @@ class RXTX:
         # Package length
         required_len = len(barker) + (length * self.samples_pr_bit_ds)
 
-        buffer_size = max(20000, required_len)
-        new_buffer = np.zeros(buffer_size, dtype=np.complex64)  # Premade buffer
+        # buffer_size = max(20000, required_len)
+        # new_buffer = np.zeros(buffer_size, dtype=np.complex64)  # Premade buffer
+        # Removed to reduce overhead.
+
         wrap_over = []  # initialize for later use
 
         self.sdr.start_receive_cont()
         while True:
-            self.sdr.receive_cont_samples(new_buffer)
-            new_buffer_ds = new_buffer[::self.ds]  # Downsample the received buffer
+            self.sdr.receive_cont_samples(self.new_buffer)
+            new_buffer_ds = self.new_buffer[::self.ds]  # Downsample the received buffer
 
             buffer = np.concatenate((wrap_over, new_buffer_ds))  # Insert wrap over
 
@@ -214,7 +221,8 @@ class RXTX:
 
         msg = str(msg)  # Ensures msg is string
 
-        msg_as_bytes = np.frombuffer(msg.encode('utf-8'), dtype=np.uint8) #msg.encode from str to bytes, from buffer changes datatype to uint8
+        # msg.encode from str to bytes, from buffer changes datatype to uint8
+        msg_as_bytes = np.frombuffer(msg.encode('utf-8'), dtype=np.uint8)
         bits = np.unpackbits(msg_as_bytes)  # From e.g. 70 to bits e.g. [0, 1, 0, 0, ...]
         data_symbols = (bits.astype(np.float32) * 2) - 1  # from bits to +-1:
         # (1 * 2) - 1 = 1
@@ -227,8 +235,19 @@ class RXTX:
 
         self.sdr.transmit(samples)
 
-s = RXTX()
-i=0
-while True:
-    i+=1 
-    s.transmit(i)
+
+# Example usage:
+if __name__ == "__main__":
+    s = RXTX()
+
+    RX = True
+
+    if RX:
+        while True:
+            for item in s.receive():
+                print(item)
+    else:
+        i = 0
+        while True:
+            i += 1
+            s.transmit(i)
