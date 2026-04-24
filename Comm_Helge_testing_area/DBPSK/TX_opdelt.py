@@ -2,7 +2,7 @@ from Git.ESD_P6.SDR_class import SDR
 import numpy as np
 
 # Parameters
-SAMP_PER_BIT = 32  # Resulting bit rate: 1e6 / 32 = 31.25 Kbps
+SAMP_PER_BIT = 32 # Resulting bit rate: 1e6 / 32 = 31.25 Kbps
 sample_rate = 1e6
 center_freq = 5.8e9
 gain = 60
@@ -23,13 +23,13 @@ def transmit(sdr: SDR, message):
     payload = np.concatenate((barker, data_symbols))
     samples = np.repeat(payload, SAMP_PER_BIT).astype(np.complex64)
 
-    print(f"Transmitting...")
-    try:
-        while True:
-            sdr.transmit(samples)
-    except KeyboardInterrupt:
-        pass
+    #print(f"Transmitting...")
+    sdr.transmit(samples)
+    
 
 
 if __name__ == "__main__":
-    transmit(sdr, "Hello")
+    i=0
+    while True:
+        i=i+1
+        transmit(sdr, str(i))
