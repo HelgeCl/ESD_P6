@@ -18,7 +18,7 @@ def transmit(sdr: SDR, msg):
 
     msg = str(msg)  # Ensures msg is string
 
-    msg_as_bytes = msg.encode('utf-8')  # String to bytes
+    msg_as_bytes = np.frombuffer(msg.encode('utf-8'), dtype=np.uint8)  # String to bytes
     bits = np.unpackbits(msg_as_bytes)  # From e.g. 70 to bits e.g. [0, 1, 0, 0, ...]
     data_symbols = (bits.astype(np.float32) * 2) - 1  # from bits to +-1:
     # (1 * 2) - 1 = 1
