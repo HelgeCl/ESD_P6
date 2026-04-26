@@ -145,7 +145,7 @@ class RXTX:
                 continue  # Skip this loop
 
             # Correlate the signal with the barker code
-            corr = np.correlate(sig_cfo_corrected, barker, mode='valid')
+            corr = np.correlate(sig_cfo_corrected, barker)
             mag_corr = np.abs(corr)  # Magnitude of the complex numbers for comparason
 
             noise_floor = np.median(mag_corr)
