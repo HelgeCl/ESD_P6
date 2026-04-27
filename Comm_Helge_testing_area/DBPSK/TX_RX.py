@@ -39,9 +39,7 @@ class RXTX:
         # Squaring BPSK removes the modulation, leaving a tone at 2x the CFO (See report)
         sig_sq = sig ** 2
         fft_sq = np.fft.fft(sig_sq, n=N_fft)
-        fft_sq[0] = 0  # Remove DC component
-        # While it is technically possible for the signal to be here (if no CFO correction is required), due to the
-        # Squaring this is always quite high, especially when remembering, that the SDR has some DC bias.
+
         # Get frequencies bins who's corresponding magnitude is fft_sq
         freqs = np.fft.fftfreq(N_fft, d=1/self.sample_rate_ds)
 
