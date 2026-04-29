@@ -131,7 +131,7 @@ class RXTX:
         wrap_over = []  # initialize for later use
 
         self.sdr.start_receive_cont()
-        while True:
+        for i in range(10):
             self.sdr.receive_cont_samples(self.new_buffer)
             new_buffer_ds = self.new_buffer[::self.ds]  # Downsample the received buffer
 
@@ -192,7 +192,7 @@ class RXTX:
                 # (We are sure of this, as it is the first time the barker correlates)
                 starts = np.concatenate(([indices[0]], new_packet_starts))
 
-                msgs = []
+                bits = []
                 for start_idx in starts:
                     # Make a window, from start index with the length of barker
                     # with safety limit to not read outside mag_corr. NB if mag_corr is used, the next if statement will fail
