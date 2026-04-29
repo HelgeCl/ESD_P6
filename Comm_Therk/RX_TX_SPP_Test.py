@@ -10,7 +10,7 @@ if __name__ == "__main__":
     while ack_req == False:
         print(f"Listening...")
         rec_msg = radio.receive()
-        print(f"Received data: {rec_msg}")
+        #print(f"Received data: {rec_msg}")
         if rec_msg is not None:
             decoded_msg = decode.decode(rec_msg)
             print(f"Decoded message: {decoded_msg}")
@@ -19,10 +19,10 @@ if __name__ == "__main__":
         print(f"Responding...")
         enc_msg = encode.encode(
             packet_type=0,        # telecommand
-            apid=2, # Predefineret apid
+            apid=1, # Predefineret apid
             seq_flag=3,           # 0 for continuation, 1 for first, 2 for last, 3 for sole
             sequence_count=0, # Fortæller hvilket nr. pakket dette er, kun relevant
-            data="ACK: Message received successfully!", # Obv. data i dette tilfælde 'message'
+            data="ACK:PI1HERE!", # Obv. data i dette tilfælde 'message'
             sec_hdr_flag=0 # 0 for ingen sec header, 1 for sec header
         )
         radio.transmit(enc_msg)

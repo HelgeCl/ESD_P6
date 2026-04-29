@@ -61,12 +61,12 @@ class SPPEncoder:
         word2 = seq_flag_bit + sequence_count_bit
         # Last 16 bits: packet_data_length
         word3 = format(packet_data_length, '016b')
-        print(f"{word1, word2, word3}")
+        #print(f"{word1, word2, word3}")
         prime_header = word1 + word2 + word3
-        print(f"{prime_header}")
+        #print(f"{prime_header}")
         # Assemble final packet
         packet = prime_header + data_field
-        print(f"{packet}")
+        print(f"Transmitting: {format(int(packet,2),'x')}")
         return packet
 
 
