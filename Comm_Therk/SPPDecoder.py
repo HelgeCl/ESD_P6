@@ -30,6 +30,7 @@ class SPPDecoder:
             Dictionary containing decoded packet or None if invalid
         """
         self.buffer.extend(bits)
+        """""
         print(self.buffer)
 
         version = self.buffer[0]
@@ -50,7 +51,7 @@ class SPPDecoder:
         for b in range(16):
             packet_data_length += self.buffer[31+b]
         packet_data = ''
-        for b in range(int(packet_data_length, 2)*8):
+        for b in range(int(packet_data_length, 2)):
             packet_data += self.buffer[47+b]
 
         return {
@@ -63,19 +64,19 @@ class SPPDecoder:
             'length': int(packet_data_length, 2),
             'data': packet_data.hex()
         }
-        # Parse primary header
         """""
-        if len(self.buffer) < (self.PRIMARY_HEADER_SIZE * 8):
-            return None
+        # Parse primary header
+       # if len(self.buffer) < (self.PRIMARY_HEADER_SIZE * 8):
+        #    return None
         
         header_bits = self.buffer[:48]  # First 48 bits for primary header
         header_bytes = self._bits_to_bytes(header_bits)
         
         packet_length = self._get_packet_length(header_bytes)
-        total_bits_needed = (packet_length * 8)
+        total_bits_needed = (packet_length * 8) + 6*8
         
-        if len(self.buffer) < total_bits_needed:
-            return None
+        #if len(self.buffer) < total_bits_needed:
+        #    return None
         
         # Extract full packet
         packet_bits = self.buffer[:total_bits_needed]
@@ -84,7 +85,7 @@ class SPPDecoder:
         packet_bytes = self._bits_to_bytes(packet_bits)
         
         return self._parse_spp_header(packet_bytes, packet_length)
-    """""
+    
     
     def _bits_to_bytes(self, bits: list) -> bytes:
         """Convert bit list to bytes"""

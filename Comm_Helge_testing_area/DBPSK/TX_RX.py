@@ -106,6 +106,7 @@ class RXTX:
         self.new_buffer = np.zeros(size, dtype=np.complex64)
 
     def receive(self, length: int = 80):
+        print("wtf is happening?")
         """Receive a message
         Currently without a timeout
         if length is larger than 20000 bits, call recv_buffer before with an appropiate size
@@ -199,6 +200,7 @@ class RXTX:
 
                     # Ensure that the entire packet is inside the signal
                     if peak + required_len < len(sig_cfo_corrected):
+                        print(f"Packet accepted")
                         # Calculate offset based on known the first value of barker is a 1
                         phase_offset = np.angle(corr[peak])
                         # Calculate index for first bit in the actual packet
@@ -207,9 +209,11 @@ class RXTX:
 
                         bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
                                                      start_bit_idx, length)
-                        decoded_msg = self.__bit2ascii(bits)
-                        msgs.append(decoded_msg)
-                return (msgs)
+                        #decoded_msg = self.__bit2ascii(bits)
+                        #msgs.append(decoded_msg)
+                    else:
+                        print(f"Packet rejected")
+                return (bits)
 
     def transmit(self, msg: str):
         """Transmit a message"""

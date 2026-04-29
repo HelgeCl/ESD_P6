@@ -75,7 +75,12 @@ class RXTX:
         sample_values = np.real(corrected_sig[indices])
 
         # Convert to '1's and '0's
-        bit_array = (sample_values > 0).astype(np.uint8)  # If true 1, false = 0
+        #bit_array = (sample_values > 0).astype(np.uint8)  # If true 1, false = 0
+        bit_array = []
+        for i in range(len(sample_values)):
+                bit_array.append('1' if sample_values[i] > 0 else '0')
+        #print(f"Samp_val: {sample_values}")
+        #print(bit_array)
         return bit_array
 
     def __bit2ascii(self, bits):
@@ -105,7 +110,7 @@ class RXTX:
     def recv_buffer(self, size: int):
         self.new_buffer = np.zeros(size, dtype=np.complex64)
 
-    def receive(self, length: int = 80):
+    def receive(self, length: int = 256):
         """Receive a message
         Currently without a timeout
         if length is larger than 20000 bits, call recv_buffer before with an appropiate size
@@ -199,6 +204,7 @@ class RXTX:
 
                     # Ensure that the entire packet is inside the signal
                     if peak + required_len < len(sig_cfo_corrected):
+                        print("Packet accepted")
                         # Calculate offset based on known the first value of barker is a 1
                         phase_offset = np.angle(corr[peak])
                         # Calculate index for first bit in the actual packet
@@ -207,9 +213,11 @@ class RXTX:
 
                         bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
                                                      start_bit_idx, length)
-                        decoded_msg = self.__bit2ascii(bits)
-                        msgs.append(decoded_msg)
-                return (msgs)
+                        #decoded_msg = self.__bit2ascii(bits)
+                        #msgs.append(decoded_msg)
+                    else:
+                        print("Packet rejected")
+                return (bits)
 
     def transmit(self, msg: str):
         """Transmit a message"""

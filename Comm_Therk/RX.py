@@ -84,7 +84,7 @@ def receive():
         # Threshold check: Max possible correlation is 416. We use 150 to reject noise.
         # Also ensure we have enough samples left in the buffer to pull all 80 bits.
         if mag_corr[peak] > 150 and (peak + required_len < len(sig_cfo_corrected)):
-            
+            print(f"Packet detected")
             # 4. Final Phase Correction
             # Now that spinning is stopped, we fix the static phase offset
             phase_offset = np.angle(corr[peak])
@@ -101,9 +101,12 @@ def receive():
                 bits.append('1' if real_sig[idx] > 0 else '0')
             
             # 6. Decoding
+            print(f"Received data: {bits}")
             decoded_packet = decoder.decode(bits)  # We can also pass bits to our SPPDecoder for structured parsing
-            print(f"Received packet: {decoded_packet}")
+            print(f"Received packet: {decoded_packet}")   
             print(f"CFO Corrected: {cfo_est:5.0f} Hz | Static Phase: {np.degrees(phase_offset):6.1f}°")
+            if decoded_packet is not None and len(decoded_packet) > 0:
+                break
 
 if __name__ == "__main__":
     receive()
