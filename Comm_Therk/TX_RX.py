@@ -1,3 +1,4 @@
+from Git.ESD_P6.Comm_Therk.SPPEncoder import SPPEncoder
 from Git.ESD_P6.SDR_class import SDR
 import numpy as np
 
@@ -14,6 +15,7 @@ class RXTX:
         self.samples_pr_bit_ds = samples_pr_bit//down_sample_factor  # Downsampled samples pr. bit
 
         self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [1])
+        self.encode = SPPEncoder()
         self.last_state = ""
         self.barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
         self.new_buffer = np.zeros(20000, dtype=np.complex64)
@@ -227,6 +229,22 @@ class RXTX:
             self.sdr.setup_transmit()
             self.last_state = 'TX'
 
+        message = msg
+        packet = self.encode.encode(
+            packet_type=0,        # telecommand
+            apid=1, # Predefineret apid
+            seq_flag=3,           # 0 for continuation, 1 for first, 2 for last, 3 for sole
+            sequence_count=0, # Fortæller hvilket nr. pakket dette er, kun relevant
+            data=message, # Obv. data i dette tilfælde 'message'
+            sec_hdr_flag=0 # 0 for ingen sec header, 1 for sec header
+        )
+        #bits = ''.join(format(ord(i), '08b') for i in message)
+        data_symbols = np.array([1 if b == '1' else -1 for b in packet])
+        
+        # Combine and Oversample
+        payload = np.concatenate((self.barker_base, data_symbols))
+        samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
+        """""
         carrier = np.ones(20, dtype=np.float32)  # 20 bits of just carrier
         # required to get enough energy for FFT CFO
 
@@ -243,6 +261,7 @@ class RXTX:
         # Combine and insert more samples pr. bit
         payload = np.concatenate((carrier, self.barker_base, data_symbols, carrier))
         samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
+        """""
 
         self.sdr.transmit(samples)
 

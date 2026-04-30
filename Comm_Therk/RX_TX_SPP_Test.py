@@ -1,6 +1,7 @@
 import threading
 import queue
 from Git.ESD_P6.Comm_Therk.TX_RX import RXTX
+from Git.ESD_P6.Comm_Therk.TX import transmit
 from Git.ESD_P6.Comm_Therk.SPPEncoder import SPPEncoder
 from Git.ESD_P6.Comm_Therk.SPPDecoder import SPPDecoder
 
@@ -28,30 +29,18 @@ if __name__ == "__main__":
                 break
             elif cmd == "ping adversary":
                 print(f"Pinging adversary")
-                enc_msg = encode.encode(
-                packet_type=0,        # telecommand
-                apid=1, # Predefineret apid
-                seq_flag=3,           # 0 for continuation, 1 for first, 2 for last, 3 for sole
-                sequence_count=0, # Fortæller hvilket nr. pakket dette er, kun relevant
-                data="REQ:ACTIVE?", # Obv. data i dette tilfælde 'message'
-                sec_hdr_flag=0 # 0 for ingen sec header, 1 for sec header
-                )
-                radio.transmit(enc_msg)
+                radio.transmit("REQ:ACTIVE?")
+                
+                #transmit("REQ:ACTIVE?")
                 #ack_req = True
         except queue.Empty:
             pass
 
         if ack_req == True:
-            print(f"Responding...")
-            enc_msg = encode.encode(
-                packet_type=0,        # telecommand
-                apid=1, # Predefineret apid
-                seq_flag=3,           # 0 for continuation, 1 for first, 2 for last, 3 for sole
-                sequence_count=0, # Fortæller hvilket nr. pakket dette er, kun relevant
-                data="ACK:PI1HERE!", # Obv. data i dette tilfælde 'message'
-                sec_hdr_flag=0 # 0 for ingen sec header, 1 for sec header
-            )
-            radio.transmit(enc_msg)
+            print(f"Responding...")  
+            radio.transmit("ACK:PI1HERE!")
+            
+            #transmit("ACK:PI1HERE!")
             ack_req = False
         else:
             print(f"Listening...")
@@ -61,8 +50,9 @@ if __name__ == "__main__":
                     #print(f"Received data: {rec_msg}")
                     if rec_msg is not None:
                         decoded_msg = decode.decode(rec_msg)
-                        if decoded_msg is not None and decoded_msg['data'] == '5245513A4143544956453F':
+                        if decoded_msg is not None and decoded_msg['data'] == '5245513a4143544956453f':
                             print(f"Decoded message: {decoded_msg}")
+                            print("Sending acknowledgement")
                             ack_req = True
                         elif decoded_msg is not None:
                             print(f"Decoded message: {decoded_msg}")
