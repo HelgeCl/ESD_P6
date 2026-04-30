@@ -66,8 +66,8 @@ class SPPDecoder:
         }
         """""
         # Parse primary header
-       # if len(self.buffer) < (self.PRIMARY_HEADER_SIZE * 8):
-        #    return None
+        if len(self.buffer) < (self.PRIMARY_HEADER_SIZE * 8):
+            return None
         
         header_bits = self.buffer[:48]  # First 48 bits for primary header
         header_bytes = self._bits_to_bytes(header_bits)
@@ -118,7 +118,8 @@ class SPPDecoder:
         apid = struct.unpack('>H', bytes([header[0] & 0x07, header[1]]))[0]
         seq_flags = (header[2] >> 6) & 0x03
         seq_count = struct.unpack('>H', bytes([header[2] & 0x3F, header[3]]))[0]
-        
+        if apid < 2:
+            return None
         return {
             'version': version,
             'type': pkt_type,
