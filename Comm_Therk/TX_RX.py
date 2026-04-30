@@ -204,7 +204,7 @@ class RXTX:
 
                     # Ensure that the entire packet is inside the signal
                     if peak + required_len < len(sig_cfo_corrected):
-                        print("Packet accepted")
+                        #print("Packet accepted")
                         # Calculate offset based on known the first value of barker is a 1
                         phase_offset = np.angle(corr[peak])
                         # Calculate index for first bit in the actual packet
@@ -215,9 +215,11 @@ class RXTX:
                                                      start_bit_idx, length)
                         #decoded_msg = self.__bit2ascii(bits)
                         #msgs.append(decoded_msg)
+                        return (bits)
                     else:
-                        print("Packet rejected")
-                return (bits)
+                        continue
+                        #print("Packet rejected")
+                
 
     def transmit(self, msg: str):
         """Transmit a message"""

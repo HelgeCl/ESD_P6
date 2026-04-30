@@ -61,7 +61,11 @@ if __name__ == "__main__":
                     #print(f"Received data: {rec_msg}")
                     if rec_msg is not None:
                         decoded_msg = decode.decode(rec_msg)
-                        print(f"Decoded message: {decoded_msg}")
+                        if decoded_msg is not None and decoded_msg['data'] == '5245513A4143544956453F':
+                            print(f"Decoded message: {decoded_msg}")
+                            ack_req = True
+                        elif decoded_msg is not None:
+                            print(f"Decoded message: {decoded_msg}")
                 else:
                      break
         

@@ -107,6 +107,7 @@ class SPPDecoder:
     def _parse_spp_header(self, packet: bytes, length: int) -> dict:
         """Parse SPP primary header"""
         if len(packet) < self.PRIMARY_HEADER_SIZE:
+            print("Invalid header")
             return None
         
         header = packet[:self.PRIMARY_HEADER_SIZE]
@@ -118,7 +119,7 @@ class SPPDecoder:
         apid = struct.unpack('>H', bytes([header[0] & 0x07, header[1]]))[0]
         seq_flags = (header[2] >> 6) & 0x03
         seq_count = struct.unpack('>H', bytes([header[2] & 0x3F, header[3]]))[0]
-        if apid < 2:
+        if apid < 2 or version is not 0:
             return None
         return {
             'version': version,
