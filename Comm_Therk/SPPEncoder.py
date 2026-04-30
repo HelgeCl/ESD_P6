@@ -1,5 +1,5 @@
 import numpy as np
-
+import math
 class SPPEncoder:
     def __init__(self, version=0):
         """
@@ -43,7 +43,7 @@ class SPPEncoder:
         if len(data_field) == 0:
             raise ValueError("Packet data field cannot be empty (need at least 1 octet of user data or secondary header)")
         
-        packet_data_length = len(data_field) - 1
+        packet_data_length = math.ceil(len(data_field)/8) - 1
         if packet_data_length > 65535:
             raise ValueError("Packet data field too long (max 65536 octets)")
 
