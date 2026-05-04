@@ -34,7 +34,7 @@ class SDR:
         self.usrp.set_time_source("internal")
         self.usrp.set_time_now(uhd.types.TimeSpec(0.0))
         self.usrp.set_time_unknown_pps(uhd.types.TimeSpec(0.0))
-        time.sleep(10)  # Time to lock, and "warmup" time
+        #time.sleep(10)  # Time to lock, and "warmup" time H123 Temp
         print("SDR setup done")
 
     def set_channel_rx2(self):
