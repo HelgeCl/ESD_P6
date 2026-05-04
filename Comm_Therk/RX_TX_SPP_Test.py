@@ -1,7 +1,6 @@
 import threading
 import queue
 from Git.ESD_P6.Comm_Therk.TX_RX import RXTX
-from Git.ESD_P6.Comm_Therk.TX import transmit
 from Git.ESD_P6.Comm_Therk.SPPEncoder import SPPEncoder
 from Git.ESD_P6.Comm_Therk.SPPDecoder import SPPDecoder
 
@@ -13,56 +12,60 @@ def listen_for_commands():
         cmd_queue.put(cmd)
 
 if __name__ == "__main__":
-    encode= SPPEncoder()
+    encode = SPPEncoder()
     decode = SPPDecoder(bit_rate=1e6)
-    
+
     radio = RXTX()
-    ack_req = False
     allow_rec = True
+
     thread = threading.Thread(target=listen_for_commands, daemon=True)
     thread.start()
 
     while True:
+        # --- Handle keyboard commands first ---
         try:
             cmd = cmd_queue.get_nowait()
             if cmd == "quit":
                 print("Quitting...")
                 break
             elif cmd == "ping adversary":
-                print(f"Pinging adversary")
+                print("Pinging adversary")
                 radio.transmit("REQ:ACTIVE?")
+                # FIX: After transmitting, immediately drop into receive to catch the ACK.
+                # The old code went around the main loop first, burning time while the
+                # peer was already listening and counting down its receive timeout.
+                allow_rec = True
             elif cmd == "stop rec":
                 allow_rec = False
             elif cmd == "start rec":
                 allow_rec = True
-                
-                #transmit("REQ:ACTIVE?")
-                #ack_req = True
         except queue.Empty:
             pass
 
-        if ack_req == True:
-            print(f"Responding...")  
-            radio.transmit("ACK:PI1HERE!")
-            
-            #transmit("ACK:PI1HERE!")
-            ack_req = False
-        elif allow_rec:
-            print(f"Listening...")
-            while ack_req == False and cmd_queue.empty() and allow_rec:
-                if cmd_queue.empty(): 
-                    rec_msg = radio.receive()
-                    #print(f"Received data: {rec_msg}")
-                    if rec_msg is not None:
-                        decoded_msg = decode.decode(rec_msg)
-                        if decoded_msg is not None and decoded_msg['data'] == '5245513a4143544956453f':
-                            print(f"Decoded message: {decoded_msg}")
-                            print("Sending acknowledgement")
-                            allow_rec = False
-                            ack_req = True
-                        elif decoded_msg is not None:
-                            print(f"Decoded message: {decoded_msg}")
-                            allow_rec = False
-                else:
-                     break
-        
+        # --- Receive loop ---
+        if allow_rec:
+            print("Listening...")
+            # FIX: Pass a meaningful timeout so receive() doesn't give up after 200ms.
+            # 5 seconds gives ample time for the peer to switch modes and transmit.
+            rec_bits = radio.receive(timeout=5.0)
+
+            if rec_bits is None:
+                # Timed out — nothing received, loop back and check commands again
+                continue
+
+            decoded_msg = decode.decode(rec_bits)
+            if decoded_msg is None:
+                print("Received undecodable packet, ignoring")
+                continue
+
+            print(f"Decoded message: {decoded_msg}")
+
+            # FIX: Respond immediately in the same iteration, not on the next loop.
+            # Previously ack_req was set True and the ACK was sent one full loop
+            # iteration later — by then the peer had often already timed out.
+            if decoded_msg.get('data') == '5245513a4143544956453f':
+                print("Received REQ:ACTIVE? — sending ACK immediately")
+                radio.transmit("ACK:PI1HERE!")
+            else:
+                print("Unknown message received, stopping receive")
+                allow_rec = False

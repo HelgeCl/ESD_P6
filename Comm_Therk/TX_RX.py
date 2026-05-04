@@ -1,231 +1,171 @@
 from Git.ESD_P6.Comm_Therk.SPPEncoder import SPPEncoder
 from Git.ESD_P6.SDR_class import SDR
 import numpy as np
+import time
 
 
 class RXTX:
-    def __init__(self, samples_pr_bit: int = 32, sample_rate: int | float = 1e6, center_freq: int | float = 5.8e9, gain_rx: int = 60, gain_tx: int = 60, down_sample_factor: int = 4):
+    def __init__(self, samples_pr_bit: int = 32, sample_rate: int | float = 1e6,
+                 center_freq: int | float = 5.8e9, gain_rx: int = 60, gain_tx: int = 60,
+                 down_sample_factor: int = 4):
         """
         samples_pr_bit:
-           -Hvor mange samples er der på en bit? I.e. samplerate/samples_pr_bit = bit rate
+           - Hvor mange samples er der på en bit? I.e. samplerate/samples_pr_bit = bit rate
         """
         self.samples_pr_bit = samples_pr_bit
         self.ds = down_sample_factor
-        self.sample_rate_ds = sample_rate / down_sample_factor  # Downsampled samplerate
-        self.samples_pr_bit_ds = samples_pr_bit//down_sample_factor  # Downsampled samples pr. bit
+        self.sample_rate_ds = sample_rate / down_sample_factor
+        self.samples_pr_bit_ds = samples_pr_bit // down_sample_factor
 
         self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [1])
         self.encode = SPPEncoder()
         self.last_state = ""
+        self._rx_stream_started = False  # FIX: track whether stream is already running
         self.barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
         self.new_buffer = np.zeros(20000, dtype=np.complex64)
 
     def __center_normalize(self, sig):
-        """Centers and normalizes the signal
-        i.e. normalize (sig-mean(sig))
-        """
-        sig = sig - np.mean(sig)  # Remove DC
+        """Centers and normalizes the signal"""
+        sig = sig - np.mean(sig)
         sig_max = np.max(np.abs(sig))
-        if sig_max == 0:  # If there is no signal, skip this cycle
+        if sig_max == 0:
             return False
-        sig = sig / sig_max  # Normalize to +- 1.0
+        sig = sig / sig_max
         return sig
 
     def __frequency_correction(self, sig):
-        """
-        Correting a signal w.r.t. frequency offset
-        """
-        # Carrier Frequency Offset (CFO) Correction
-        # Required as the transmitter and receiver isnt syncronised on frequency.
-        N_fft = 8192  # Size of FFT
-        # Squaring BPSK removes the modulation, leaving a tone at 2x the CFO (See report)
+        """Corrects signal w.r.t. frequency offset using squaring method"""
+        N_fft = 8192
         sig_sq = sig ** 2
         fft_sq = np.fft.fft(sig_sq, n=N_fft)
+        freqs = np.fft.fftfreq(N_fft, d=1 / self.sample_rate_ds)
 
-        # Get frequencies bins who's corresponding magnitude is fft_sq
-        freqs = np.fft.fftfreq(N_fft, d=1/self.sample_rate_ds)
-
-        # Search for the CFO peak within +- 50 kHz range (+- 100kHz as we square the signal)
         valid_idx = np.where(np.abs(freqs) < 100000)[0]
-        if len(valid_idx) == 0:  # If no frequencies exist (in case of misconfiguration), this just returns before program throws errors
+        if len(valid_idx) == 0:
             return False
 
-        # Find the index which corresponds to the maximum signal
         peak_idx = valid_idx[np.argmax(np.abs(fft_sq[valid_idx]))]
-        # estimate cfo as this maximum signal (remember to divide the freq by 2, to undo the squaring)
         cfo_est = freqs[peak_idx] / 2.0
 
-        # Correct signal
         t = np.arange(len(sig)) / self.sample_rate_ds
-        sig_cfo_corrected = sig * np.exp(-1j * 2 * np.pi * cfo_est * t)  # e^(-j2pi f t)
+        sig_cfo_corrected = sig * np.exp(-1j * 2 * np.pi * cfo_est * t)
         return sig_cfo_corrected
 
     def __bit_extraction(self, sig, phase_offset, start_idx, bits_to_extract):
-        """Extects bits from signal
-        Knowing the start index of the bits
-        """
-        corrected_sig = sig * np.exp(-1j * phase_offset)  # Correcting the signals phase offset
-        # Corrected sig, is now frequency and phase corrected. Meaning that only real signal is left being between -1 and 1.
-        # With bit 1 if signal is larger than 0 and 0 if smaller than 0.
-
-        # Calculate the indices of all the bits (As start index is already centered, that is disregarded here)
+        """Extracts bits from signal given a known start index"""
+        corrected_sig = sig * np.exp(-1j * phase_offset)
         indices = start_idx + np.arange(bits_to_extract) * self.samples_pr_bit_ds
-        # arange makes an array of 0 to arg. In this case 0 to length of packet
-
-        # As indice has the index of every bit, we can just extact the signal at this index.
-        # And as the signal is phase corrected we can just extract the real value
         sample_values = np.real(corrected_sig[indices])
-
-        # Convert to '1's and '0's
-        #bit_array = (sample_values > 0).astype(np.uint8)  # If true 1, false = 0
-        bit_array = []
-        for i in range(len(sample_values)):
-                bit_array.append('1' if sample_values[i] > 0 else '0')
-        #print(f"Samp_val: {sample_values}")
-        #print(bit_array)
+        bit_array = ['1' if v > 0 else '0' for v in sample_values]
         return bit_array
 
     def __bit2ascii(self, bits):
-        """
-        Converts bits (already in np array) to ascii
-        """
-
-        # Make matrix with one byte pr. row
+        """Converts bits (np array) to ASCII string"""
         rows = len(bits) // 8
         byte_matrix = bits[:rows * 8].reshape(-1, 8)
-        # Reshape til et 8xN matrix
-        # NB :rows * 8 is a satety incase someone uses this fuction without bits being ascii comptaible
-
-        # Vector of powers 2 [128, 64... 2,1] for vector multiplication
-        powers = 2 ** np.arange(7, -1, -1)  # arange start, stop (excl.), step
-
-        # matrix (byte), vector (powers) multiplication. Sum each row
-        # axis=1, to sum accros rows and not coloums
+        powers = 2 ** np.arange(7, -1, -1)
         ascii_values = np.sum(byte_matrix * powers, axis=1)
-
-        # Convert to ascii
-        raw_bytes = bytes(ascii_values.astype(np.uint8))  # Cast into bytes type
-        decoded_string = raw_bytes.decode('ascii', errors='ignore')
-
-        return decoded_string
+        raw_bytes = bytes(ascii_values.astype(np.uint8))
+        return raw_bytes.decode('ascii', errors='ignore')
 
     def recv_buffer(self, size: int):
         self.new_buffer = np.zeros(size, dtype=np.complex64)
 
-    def receive(self, length: int = 256):
-        """Receive a message
-        Currently without a timeout
-        if length is larger than 20000 bits, call recv_buffer before with an appropiate size
+    def receive(self, length: int = 256, timeout: float = 5.0):
+        """
+        Receive a message, listening for up to `timeout` seconds.
+
+        FIX 1: Replaced the hardcoded range(10) loop with a real timeout.
+                At 20ms/buffer the old code only listened for ~200ms total,
+                which is far too short to reliably catch a one-shot transmission
+                that may arrive while the SDR is still switching modes.
+
+        FIX 2: `start_receive_cont()` is now only called once (on mode switch),
+                not on every receive() invocation. Re-issuing the stream command
+                each call causes a brief flush that drops the first few buffers,
+                exactly when the packet is most likely to arrive.
         """
         if self.last_state != 'RX':
             self.sdr.setup_receiving()
+            # FIX: small settle delay to let the UHD stream stabilise
+            # before reading. Avoids consuming overrun/garbage buffers.
+            time.sleep(0.05)
+            self.sdr.start_receive_cont()   # start stream ONCE here …
+            self._rx_stream_started = True
             self.last_state = 'RX'
-        # Calculate barker code:
-        barker = np.repeat(self.barker_base, self.samples_pr_bit_ds)
+        # … not here on every call (old code had it here unconditionally)
 
-        # Package length
+        barker = np.repeat(self.barker_base, self.samples_pr_bit_ds)
         required_len = len(barker) + (length * self.samples_pr_bit_ds)
 
-        # buffer_size = max(20000, required_len)
-        # new_buffer = np.zeros(buffer_size, dtype=np.complex64)  # Premade buffer
-        # Removed to reduce overhead.
+        wrap_over = []
+        deadline = time.monotonic() + timeout
 
-        wrap_over = []  # initialize for later use
-
-        self.sdr.start_receive_cont()
-        for i in range(10):
+        while time.monotonic() < deadline:
             self.sdr.receive_cont_samples(self.new_buffer)
-            new_buffer_ds = self.new_buffer[::self.ds]  # Downsample the received buffer
+            new_buffer_ds = self.new_buffer[::self.ds]
 
-            buffer = np.concatenate((wrap_over, new_buffer_ds))  # Insert wrap over
-
-            wrap_over = buffer[-required_len:]  # the last part of the buffer for wrapover
+            buffer = np.concatenate((wrap_over, new_buffer_ds))
+            wrap_over = buffer[-required_len:]  # carry tail into next iteration
 
             sig = self.__center_normalize(buffer)
             if isinstance(sig, bool):
-                continue  # Skip this loop
+                continue
 
             sig_cfo_corrected = self.__frequency_correction(sig)
             if isinstance(sig_cfo_corrected, bool):
-                continue  # Skip this loop
+                continue
 
-            # Correlate the signal with the barker code
             corr = np.correlate(sig_cfo_corrected, barker)
-            mag_corr = np.abs(corr)  # Magnitude of the complex numbers for comparason
+            mag_corr = np.abs(corr)
 
             noise_floor = np.median(mag_corr)
-            peak = np.max(mag_corr)
+            peak_val = np.max(mag_corr)
 
-            # len(barker) is the theortical maximum correlation (due to normalization)
-            if peak > 2 * noise_floor and peak > (len(barker) * 0.25):
-                indices = np.where(mag_corr > 0.9 * peak)[0]
+            if peak_val > 2 * noise_floor and peak_val > (len(barker) * 0.25):
+                indices = np.where(mag_corr > 0.9 * peak_val)[0]
             else:
                 indices = []
 
-            # Indices is all index's which correlates well with the barker series
-            if len(indices) > 0:  # If indices exist
-                # Detect only ONE start for every packet
-                # Indices will have a lump of data, then a gap, then a new lump of data.
-                # This is due to the barker seires being well correlated for a few samples, then a message, then a new barker comes
-                # While also is well correlated
+            if len(indices) == 0:
+                continue
 
-                # The goal is therefore to group these lumps together
+            diffs = np.diff(indices)
+            is_new_packet = diffs > len(barker)
+            new_packet_starts = indices[1:][is_new_packet]
+            starts = np.concatenate(([indices[0]], new_packet_starts))
 
-                # Find gaps between indices to separate different potential packets
-                # Calculates the difference between two successive elements
-                diffs = np.diff(indices)
-                # i.e. diff[1,2,10,5] = [2-1, 10-2, 5-10] = [1, 8, -5]
-                # I.e. Output then shows, how many big the gap between indices is:
-                # E.g. barker 1 results in indices 5,6,7,8,9,10
-                # Barker 2 is 20,21,22,23,24,25
-                # results in : 1,1,1,1,1,10,1,1,1,1
+            for start_idx in starts:
+                window_end = min(start_idx + len(barker), len(mag_corr))
+                peak = start_idx + np.argmax(mag_corr[start_idx:window_end])
 
-                # The goal is now to find indices, where the spacing/gap is larger than the length of the barker
-                is_new_packet = diffs > len(barker)
+                if peak + required_len < len(sig_cfo_corrected):
+                    phase_offset = np.angle(corr[peak])
+                    start_bit_idx = peak + len(barker) + (self.samples_pr_bit_ds // 2)
+                    bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
+                                                 start_bit_idx, length)
+                    return bits
 
-                # Is_new_packet now cotains an array, with the same length as indices, but with "true and false" (0,1) values.
-                # With "True", at the first indice for a new packet
-                # Converting this to indices:
-                # (Remember diff causes a skip of one element. Therefore we skip the first indices with indices[1:])
-                new_packet_starts = indices[1:][is_new_packet]
-                # new_packet_starts now contains the indices which corresponds to a new packet start
-                # However it is missing the first element (due to the diff skipping the first element)
-                # This first element is 100% sure a start of a packet, and should therefore be included
-                # (We are sure of this, as it is the first time the barker correlates)
-                starts = np.concatenate(([indices[0]], new_packet_starts))
+        # Timed out without finding a packet
+        return None
 
-                bits = []
-                for start_idx in starts:
-                    # Make a window, from start index with the length of barker
-                    # with safety limit to not read outside mag_corr. NB if mag_corr is used, the next if statement will fail
-                    # And we'll get the packet next sample
-                    window_end = min(start_idx + len(barker), len(mag_corr))
+    def transmit(self, msg: str, repeat: int = 5):
+        """
+        Transmit a message.
 
-                    # Detect the peak index within this window
-                    peak = start_idx + np.argmax(mag_corr[start_idx:window_end])
+        FIX 3: The packet is now sent `repeat` times (default 5) with a short
+                silence gap between bursts. A single one-shot transmission is
+                extremely fragile: if the receiver is still switching modes or
+                processing a previous buffer, the packet is gone forever.
+                Repeating gives the receiver multiple windows to catch it without
+                requiring continuous-loop transmission.
 
-                    # Ensure that the entire packet is inside the signal
-                    if peak + required_len < len(sig_cfo_corrected):
-                        #print("Packet accepted")
-                        # Calculate offset based on known the first value of barker is a 1
-                        phase_offset = np.angle(corr[peak])
-                        # Calculate index for first bit in the actual packet
-                        start_bit_idx = peak + len(barker) + (self.samples_pr_bit_ds // 2)
-                        # NB this index is places in the center of the samples. This ensures we are measuring in the stable region and not the transision
-
-                        bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
-                                                     start_bit_idx, length)
-                        #decoded_msg = self.__bit2ascii(bits)
-                        #msgs.append(decoded_msg)
-                        return (bits)
-                    else:
-                        continue
-                        #print("Packet rejected")
-                
-
-    def transmit(self, msg: str):
+        FIX 4: Added a settle delay after mode switching, same reason as receive().
+        """
         if self.last_state != 'TX':
             self.sdr.setup_transmit()
+            time.sleep(0.05)   # let the TX stream settle before first send
+            self._rx_stream_started = False
             self.last_state = 'TX'
 
         packet = self.encode.encode(
@@ -239,19 +179,29 @@ class RXTX:
 
         data_symbols = np.array([1 if b == '1' else -1 for b in packet], dtype=np.float32)
 
-        # CFO preamble tone — long enough for FFT estimation after downsampling
-        # After DS factor 4: 800 samples / 4 = 200 DS samples, enough for 8192-pt FFT
+        # CFO preamble tone (800 samples → 200 after DS=4, enough for 8192-pt FFT)
         t = np.arange(800) / self.samples_pr_bit
         cfo_preamble = np.exp(1j * 2 * np.pi * 0.1 * t).astype(np.complex64)
 
-        # Build payload ONCE, then oversample ONCE
         payload = np.concatenate((self.barker_base, data_symbols)).astype(np.float32)
         data_samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
 
-        silence = np.zeros(self.samples_pr_bit * 50, dtype=np.complex64)
+        # Gap between repetitions: enough silence so the receiver's barker
+        # correlator sees a clean separation between packets.
+        inter_packet_silence = np.zeros(self.samples_pr_bit * 200, dtype=np.complex64)
+        lead_silence = np.zeros(self.samples_pr_bit * 50, dtype=np.complex64)
+        tail_silence = np.zeros(self.samples_pr_bit * 50, dtype=np.complex64)
 
-        samples = np.concatenate((silence, cfo_preamble, data_samples, silence))
-        self.sdr.transmit(samples)
+        # Build a single waveform with `repeat` packet bursts
+        burst = np.concatenate((cfo_preamble, data_samples))
+        repeated = np.concatenate(
+            [lead_silence] +
+            [np.concatenate((burst, inter_packet_silence)) for _ in range(repeat)] +
+            [tail_silence]
+        )
+
+        print(f"Transmitting '{msg}' ({repeat}x)...")
+        self.sdr.transmit(repeated)
 
 
 # Example usage:
@@ -262,10 +212,12 @@ if __name__ == "__main__":
 
     if RX:
         while True:
-            for item in s.receive():
-                print(item)
+            result = s.receive(timeout=10.0)
+            if result is not None:
+                for item in result:
+                    print(item)
     else:
         i = 0
         while True:
             i += 1
-            s.transmit(i)
+            s.transmit(str(i))
