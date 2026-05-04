@@ -46,3 +46,19 @@ def esprit(r: np.ndarray, N: int, d: float = 0.5, shift: int = 1):
     # Convert phi to angle, theta = sin^-1(-phase / (2 * pi * d))
     angles_rad = np.arcsin(np.angle(phi) / (2 * np.pi * d*(shift)))
     return np.degrees(angles_rad)
+
+
+def delay_and_sum(X, d, point_accuracy):
+    # N is number of antennas (rows), M is number of samples (columns)
+    N, M = X.shape
+
+    theta_scan = np.linspace(-1*np.pi, np.pi, point_accuracy)
+    results = []
+
+    for theta_idx in theta_scan:
+        # delay-and-sum beamformer
+        w = np.exp(2j * np.pi * d * np.arange(N) * np.sin(theta_idx))
+        X_weighted = w.conj().T @ X  # applying weighters
+        results.append(np.var(X_weighted))  # Power in signal, in linear units
+
+    return theta_scan[np.argmax(results)] * 180 / np.pi  # Return max value, n.b. in degrees
