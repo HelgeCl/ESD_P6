@@ -32,33 +32,35 @@ class RXTX:
         return sig
 
     def __frequency_correction(self, sig):
-        """
-        Correting a signal w.r.t. frequency offset
-        """
-        # Carrier Frequency Offset (CFO) Correction
-        # Required as the transmitter and receiver isnt syncronised on frequency.
-        N_fft = 8192  # Size of FFT
-        # Squaring BPSK removes the modulation, leaving a tone at 2x the CFO (See report)
-        sig_sq = sig ** 2
+        N_fft = 8192
+        
+        # Find the high-energy region of the buffer instead of using all of it
+        # Compute short-time energy with a sliding window
+        window = self.samples_pr_bit_ds * 10  # 10-bit window
+        energy = np.convolve(np.abs(sig)**2, np.ones(window)/window, mode='same')
+        
+        noise_floor = np.median(energy)
+        signal_mask = energy > 3 * noise_floor  # Only samples with real signal
+        
+        if np.sum(signal_mask) < N_fft // 4:
+            return False  # Not enough signal energy for reliable CFO estimation
+        
+        sig_active = sig[signal_mask]  # Use only signal-bearing samples
+        
+        sig_sq = sig_active ** 2
         fft_sq = np.fft.fft(sig_sq, n=N_fft)
-
-        # Get frequencies bins who's corresponding magnitude is fft_sq
         freqs = np.fft.fftfreq(N_fft, d=1/self.sample_rate_ds)
-
-        # Search for the CFO peak within +- 50 kHz range (+- 100kHz as we square the signal)
+        
         valid_idx = np.where(np.abs(freqs) < 100000)[0]
-        if len(valid_idx) == 0:  # If no frequencies exist (in case of misconfiguration), this just returns before program throws errors
+        if len(valid_idx) == 0:
             return False
-
-        # Find the index which corresponds to the maximum signal
+        
         peak_idx = valid_idx[np.argmax(np.abs(fft_sq[valid_idx]))]
-        # estimate cfo as this maximum signal (remember to divide the freq by 2, to undo the squaring)
         cfo_est = freqs[peak_idx] / 2.0
-
-        # Correct signal
+        
+        # Apply correction to the FULL signal (not just active part)
         t = np.arange(len(sig)) / self.sample_rate_ds
-        sig_cfo_corrected = sig * np.exp(-1j * 2 * np.pi * cfo_est * t)  # e^(-j2pi f t)
-        return sig_cfo_corrected
+        return sig * np.exp(-1j * 2 * np.pi * cfo_est * t)
 
     def __bit_extraction(self, sig, phase_offset, start_idx, bits_to_extract):
         """Extects bits from signal
@@ -83,6 +85,10 @@ class RXTX:
                 bit_array.append('1' if sample_values[i] > 0 else '0')
         #print(f"Samp_val: {sample_values}")
         #print(bit_array)
+        # After computing sample_values, check signal quality
+        print(f"Sample magnitude mean: {np.mean(np.abs(sample_values)):.3f}")
+        print(f"Sample magnitude std:  {np.std(np.abs(sample_values)):.3f}")
+        print(f"First 16 values: {sample_values[:16].round(3)}")
         return bit_array
 
     def __bit2ascii(self, bits):
@@ -140,14 +146,17 @@ class RXTX:
             buffer = np.concatenate((wrap_over, new_buffer_ds))  # Insert wrap over
 
             wrap_over = buffer[-required_len:]  # the last part of the buffer for wrapover
-
             sig = self.__center_normalize(buffer)
             if isinstance(sig, bool):
-                continue  # Skip this loop
+                print(f"[{i}] center_normalize failed")  # ADD THIS
+                continue
 
             sig_cfo_corrected = self.__frequency_correction(sig)
             if isinstance(sig_cfo_corrected, bool):
-                continue  # Skip this loop
+                print(f"[{i}] frequency_correction failed")  # ADD THIS
+                continue
+
+            print(f"[{i}] Processing signal, peak={np.max(np.abs(np.correlate(sig_cfo_corrected, barker))):.4f}")  # ADD THIS
 
             # Correlate the signal with the barker code
             corr = np.correlate(sig_cfo_corrected, barker)
@@ -193,7 +202,7 @@ class RXTX:
                 # This first element is 100% sure a start of a packet, and should therefore be included
                 # (We are sure of this, as it is the first time the barker correlates)
                 starts = np.concatenate(([indices[0]], new_packet_starts))
-
+                
                 bits = []
                 for start_idx in starts:
                     # Make a window, from start index with the length of barker
@@ -232,7 +241,7 @@ class RXTX:
         message = msg
         packet = self.encode.encode(
             packet_type=0,        # telecommand
-            apid=1, # Predefineret apid
+            apid=101, # Predefineret apid
             seq_flag=3,           # 0 for continuation, 1 for first, 2 for last, 3 for sole
             sequence_count=0, # Fortæller hvilket nr. pakket dette er, kun relevant
             data=message, # Obv. data i dette tilfælde 'message'
