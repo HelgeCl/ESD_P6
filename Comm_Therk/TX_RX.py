@@ -122,7 +122,13 @@ class RXTX:
             noise_floor = np.median(mag_corr)
             peak_val = np.max(mag_corr)
 
-            if peak_val > 2 * noise_floor and peak_val > (len(barker) * 0.25):
+            # FIX: Raised threshold from 0.25 to 0.5 × len(barker).
+            # 0.25 was too permissive — noise peaks were triggering bit extraction
+            # at wrong offsets, producing shifted packets that passed the old loose
+            # SPP header check. At 0.5 the correlator still fires reliably for a
+            # real Barker sequence (which scores ~1.0 after normalisation) while
+            # rejecting most noise-induced false peaks.
+            if peak_val > 2 * noise_floor and peak_val > (len(barker) * 0.5):
                 indices = np.where(mag_corr > 0.9 * peak_val)[0]
             else:
                 indices = []

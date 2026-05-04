@@ -38,13 +38,13 @@ if __name__ == "__main__":
             elif cmd == "stop rec":
                 allow_rec = False
             elif cmd == "start rec":
+                print("Listening...")
                 allow_rec = True
         except queue.Empty:
             pass
 
         # --- Receive loop ---
         if allow_rec:
-            print("Listening...")
             # FIX: Pass a meaningful timeout so receive() doesn't give up after 200ms.
             # 5 seconds gives ample time for the peer to switch modes and transmit.
             rec_bits = radio.receive(timeout=5.0)
@@ -68,4 +68,3 @@ if __name__ == "__main__":
                 radio.transmit("ACK:PI1HERE!")
             else:
                 print("Unknown message received, stopping receive")
-                allow_rec = False
