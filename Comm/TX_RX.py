@@ -18,7 +18,7 @@ class RXTX:
         self.samples_pr_bit_ds = samples_pr_bit // down_sample_factor
 
         self.tx_apid = tx_apid
-        self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [1])
+        self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [0,1], [0])
         self.encode = SPPEncoder()
         self.last_state = ""
         self._rx_stream_started = False  # FIX: track whether stream is already running
@@ -228,7 +228,7 @@ class RXTX:
 
     def sample_and_rtn(self, samples: int):
         if self.last_state != 'RX':
-            self.sdr.setup_transmit()
+            self.sdr.setup_receiving()
             self.last_state = 'RX'
         return (self.sdr.receive_num(samples))
 

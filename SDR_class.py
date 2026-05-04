@@ -4,17 +4,19 @@ import time
 
 
 class SDR:
-    def __init__(self, sample_rate, center_freq, rx_gain, tx_gain, chan):
-        self.channels = chan  # [0, 1]
+    def __init__(self, sample_rate, center_freq, rx_gain, tx_gain, chan_rx, chan_tx):
+        self.chan_rx = chan_rx  # [0, 1]
+        self.chan_tx = chan_tx
 
         self.usrp = uhd.usrp.MultiUSRP()
 
         self.set_channel_rxtx()
-        for chan in self.channels:
+        for chan in self.chan_rx:
             self.usrp.set_rx_rate(sample_rate, chan)
             self.usrp.set_rx_freq(uhd.libpyuhd.types.tune_request(center_freq), chan)
             self.usrp.set_rx_gain(rx_gain, chan)
 
+        for chan in self.chan_tx:
             self.usrp.set_tx_rate(sample_rate, chan)
             self.usrp.set_tx_freq(uhd.libpyuhd.types.tune_request(center_freq), chan)
             self.usrp.set_tx_gain(tx_gain, chan)
@@ -36,16 +38,18 @@ class SDR:
         print("SDR setup done")
 
     def set_channel_rx2(self):
-        for chan in self.channels:
+        channels = list(set(self.chan_rx + self.chan_tx))
+        for chan in channels:
             self.usrp.set_rx_antenna('RX2', chan)
 
     def set_channel_rxtx(self):
-        for chan in self.channels:
+        channels = list(set(self.chan_rx + self.chan_tx))
+        for chan in channels:
             self.usrp.set_rx_antenna('TX/RX', chan)
 
     def setup_receiving(self):
         st_args = uhd.usrp.StreamArgs("fc32", "sc16")
-        st_args.channels = self.channels
+        st_args.channels = self.chan_rx
         self.rx_streamer = self.usrp.get_rx_stream(st_args)
 
         self.rx_metadata = uhd.types.RXMetadata()
@@ -61,7 +65,7 @@ class SDR:
 
         num_samples = num_samples+150
 
-        buffer = np.zeros((len(self.channels), num_samples), dtype=np.complex64)
+        buffer = np.zeros((len(self.chan_rx), num_samples), dtype=np.complex64)
         self.rx_stream_cmd.num_samps = num_samples
 
         seconds_to_delay = 0.1  # required to sync the two channels
@@ -93,7 +97,7 @@ class SDR:
 
     def setup_transmit(self):
         st_args = uhd.usrp.StreamArgs("fc32", "sc16")
-        st_args.channels = self.channels
+        st_args.channels = self.self.chan_tx
         self.tx_streamer = self.usrp.get_tx_stream(st_args)
 
 
