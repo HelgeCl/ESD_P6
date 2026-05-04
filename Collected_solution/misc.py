@@ -1,15 +1,16 @@
 import numpy as np
-from Comm.TX_RX import RXTX
-from Comm.SPPDecoder import SPPDecoder
+from Git.ESD_P6.Comm.TX_RX import RXTX
+from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 
 
 def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5):
     bits = radio.receive(timeout=timeout)
-    for seq in bits:
-        decoded_msg = decoder.decode(seq)
-        decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
-        if decoded_msg.get('data') == ack_string:
-            return True
+    if bits is not None:
+        for seq in bits:
+            decoded_msg = decoder.decode(seq)
+            decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
+            if decoded_msg.get('data') == ack_string:
+                return True
     return False
 
 
