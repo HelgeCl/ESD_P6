@@ -28,7 +28,7 @@ if __name__ == "__main__":
             if cmd == "quit":
                 print("Quitting...")
                 break
-            elif cmd == "ping adversary":
+            elif cmd == "ping":
                 print("Pinging adversary")
                 radio.transmit("REQ:ACTIVE?")
                 # FIX: After transmitting, immediately drop into receive to catch the ACK.
