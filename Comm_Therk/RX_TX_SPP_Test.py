@@ -18,6 +18,7 @@ if __name__ == "__main__":
     
     radio = RXTX()
     ack_req = False
+    allow_rec = True
     thread = threading.Thread(target=listen_for_commands, daemon=True)
     thread.start()
 
@@ -30,6 +31,10 @@ if __name__ == "__main__":
             elif cmd == "ping adversary":
                 print(f"Pinging adversary")
                 radio.transmit("REQ:ACTIVE?")
+            elif cmd == "stop rec":
+                allow_rec = False
+            elif cmd == "start rec":
+                allow_rec = True
                 
                 #transmit("REQ:ACTIVE?")
                 #ack_req = True
@@ -42,9 +47,9 @@ if __name__ == "__main__":
             
             #transmit("ACK:PI1HERE!")
             ack_req = False
-        else:
+        elif allow_rec:
             print(f"Listening...")
-            while ack_req == False and cmd_queue.empty():
+            while ack_req == False and cmd_queue.empty() and allow_rec:
                 if cmd_queue.empty(): 
                     rec_msg = radio.receive()
                     #print(f"Received data: {rec_msg}")
@@ -53,9 +58,11 @@ if __name__ == "__main__":
                         if decoded_msg is not None and decoded_msg['data'] == '5245513a4143544956453f':
                             print(f"Decoded message: {decoded_msg}")
                             print("Sending acknowledgement")
+                            allow_rec = False
                             ack_req = True
                         elif decoded_msg is not None:
                             print(f"Decoded message: {decoded_msg}")
+                            allow_rec = False
                 else:
                      break
         
