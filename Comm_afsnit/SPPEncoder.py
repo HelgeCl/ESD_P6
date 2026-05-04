@@ -1,5 +1,4 @@
-import math
-
+import struct
 
 class SPPEncoder:
     def __init__(self, version=0):
@@ -10,8 +9,9 @@ class SPPEncoder:
         if not (0 <= version <= 7):
             raise ValueError("Version must be a 3-bit integer (0-7)")
         self.version = version
+        self.sync_word = 0x1ACFFC1D  # Standard SPP sync marker (32 bits)
 
-    def encode(self, packet_type, apid, seq_flag, sequence_count, data,
+    def encode(self, packet_type, apid, seq_flag, sequence_count, data, 
                sec_hdr_flag, sec_hdr_data=b''):
         """
         Encode a Space Packet according to CCSDS 133.0-B.
@@ -39,58 +39,59 @@ class SPPEncoder:
             raise ValueError("Secondary header data must be bytes")
 
         # Build the complete data field (secondary header + user data)
-        data_field = (sec_hdr_data if sec_hdr_flag else '') + \
-            ''.join(format(ord(i), '08b') for i in data)
+        data_field = (sec_hdr_data if sec_hdr_flag else b'') + data
 
         if len(data_field) == 0:
-            raise ValueError(
-                "Packet data field cannot be empty (need at least 1 octet of user data or secondary header)")
-
-        packet_data_length = math.ceil(len(data_field)/8) - 1
+            raise ValueError("Packet data field cannot be empty (need at least 1 octet of user data or secondary header)")
+        
+        packet_data_length = len(data_field) - 1
         if packet_data_length > 65535:
             raise ValueError("Packet data field too long (max 65536 octets)")
 
         # Build primary header (6 bytes)
         # First 16 bits: version (3), packet_type (1), sec_hdr_flag (1), apid (11)
-        Vers_bits = format(self.version, '03b')
-        type_bit = format(packet_type, '01b')
-        sec_hdr_bit = format(sec_hdr_flag, '01b')
-        apid_bits = format(apid, '011b')
-        print(f"Vers: {Vers_bits}")
-        print(f"Type: {type_bit}")
-        print(f"SecHdr: {sec_hdr_bit}")
-        print(f"APID: {apid_bits}")
-        word1 = Vers_bits + type_bit + sec_hdr_bit + apid_bits
+        word1 = (self.version << 13) | (packet_type << 12) | (sec_hdr_flag << 11) | apid
         # Next 16 bits: seq_flag (2), sequence_count (14)
-        seq_flag_bit = format(seq_flag, '02b')
-        sequence_count_bit = format(sequence_count, '014b')
-        word2 = seq_flag_bit + sequence_count_bit
+        word2 = (seq_flag << 14) | sequence_count
         # Last 16 bits: packet_data_length
-        word3 = format(packet_data_length, '016b')
-        # print(f"{word1, word2, word3}")
-        prime_header = word1 + word2 + word3
-        print(f"{prime_header}")
+        word3 = packet_data_length
+
+        prime_header = struct.pack('>HHH', word1, word2, word3)
+        
         # Assemble final packet
-        packet = prime_header + data_field
-        print(f"Encoded packet: {format(int(packet, 2), 'x')}")
+        packet = struct.pack('>I', self.sync_word) + prime_header + data_field
         return packet
 
 
 # Example usage:
 if __name__ == "__main__":
     encoder = SPPEncoder(version=0)  # CCSDS version 0
-
+    
     # Example 1: No secondary header, user data "Hello World"
     packet1 = encoder.encode(
         packet_type=0,        # telecommand
         apid=123,
         seq_flag=3,           # sole packet
         sequence_count=0,
-        data="Fat ass monkey!",
+        data=b'Fat ass monkey!',
         sec_hdr_flag=0
     )
-    # print("Packet without secondary header (hex):", packet1.hex())
-
-    # print("Packet with secondary header (hex):", packet2.hex())
-
+    print("Packet without secondary header (hex):", packet1.hex())
+    
+    # Example 2: With a simple secondary header (e.g., timestamp as 4-byte integer)
+    import time
+    timestamp = int(time.time())  # seconds since epoch
+    sec_hdr = struct.pack('>I', timestamp)  # 4-byte unsigned int
+    packet2 = encoder.encode(
+        packet_type=1,        # telemetry
+        apid=456,
+        seq_flag=0,           # continuation (example)
+        sequence_count=42,
+        data=b'I\'m fast as fuck!!!',
+        sec_hdr_flag=1,
+        sec_hdr_data=sec_hdr
+    )
+    print("Packet with secondary header (hex):", packet2.hex())
+    
     # Validate packet structure: first 6 bytes = primary header
+    print(f"Primary header length: 6 bytes, total packet length: {len(packet2)} bytes")
