@@ -90,10 +90,11 @@ class RXTX:
             # FIX: small settle delay to let the UHD stream stabilise
             # before reading. Avoids consuming overrun/garbage buffers.
             time.sleep(0.05)
-            self.sdr.start_receive_cont()   # start stream ONCE here …
+               # start stream ONCE here …
             self._rx_stream_started = True
             self.last_state = 'RX'
         # … not here on every call (old code had it here unconditionally)
+        self.sdr.start_receive_cont()
 
         barker = np.repeat(self.barker_base, self.samples_pr_bit_ds)
         required_len = len(barker) + (length * self.samples_pr_bit_ds)
@@ -150,9 +151,12 @@ class RXTX:
                     start_bit_idx = peak + len(barker) + (self.samples_pr_bit_ds // 2)
                     bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
                                                  start_bit_idx, length)
+                    self.sdr.stop_receive_cont()
+                    self.new_buffer.fill(0)
                     return bits
 
         # Timed out without finding a packet
+        self.sdr.stop_receive_cont()
         return None
 
     def transmit(self, msg: str, repeat: int = 5):
@@ -176,7 +180,7 @@ class RXTX:
 
         packet = self.encode.encode(
             packet_type=0,
-            apid=102,
+            apid=101,
             seq_flag=3,
             sequence_count=0,
             data=msg,

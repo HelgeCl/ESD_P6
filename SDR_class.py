@@ -81,8 +81,7 @@ class SDR:
         self.rx_streamer.issue_stream_cmd(self.rx_cont_stream_cmd)
 
     def stop_receive_cont(self):
-        stop_cmd = uhd.types.StreamCMD(uhd.types.StreamMode.start_cont)
-        stop_cmd.stream_now = False
+        stop_cmd = uhd.types.StreamCMD(uhd.types.StreamMode.stop_cont)
         self.rx_streamer.issue_stream_cmd(stop_cmd)
 
     def receive_cont_samples(self, buffer):
@@ -97,8 +96,11 @@ class SDR:
         st_args.channels = self.channels
         self.tx_streamer = self.usrp.get_tx_stream(st_args)
 
+
         # Continuous loop transmission
         self.tx_metadata = uhd.types.TXMetadata()
+        self.tx_metadata.start_of_burst = True
+        self.tx_metadata.end_of_burst = True
 
     def transmit(self, samples):
         self.tx_streamer.send(samples, self.tx_metadata)
