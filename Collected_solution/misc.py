@@ -29,7 +29,7 @@ def detect_signal(signal, window_size, threshold):
 
         fft_result = np.fft.fft(window, n=8192)
 
-        magnitude = np.abs(fft_result)
+        magnitude = np.max(np.abs(fft_result))
 
         if magnitude > threshold:
             consecutive_count += 1
