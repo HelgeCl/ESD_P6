@@ -18,7 +18,7 @@ class RXTX:
         self.samples_pr_bit_ds = samples_pr_bit // down_sample_factor
 
         self.tx_apid = tx_apid
-        self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [0,1], [0])
+        self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [0,1])
         self.encode = SPPEncoder()
         self.last_state = ""
         self.barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
