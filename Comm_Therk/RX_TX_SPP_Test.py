@@ -20,7 +20,7 @@ if __name__ == "__main__":
 
     thread = threading.Thread(target=listen_for_commands, daemon=True)
     thread.start()
-
+    print("Listening...")
     while True:
         # --- Handle keyboard commands first ---
         try:
@@ -35,6 +35,8 @@ if __name__ == "__main__":
                 # The old code went around the main loop first, burning time while the
                 # peer was already listening and counting down its receive timeout.
                 allow_rec = True
+            elif cmd == "Trans Msg":
+                print("Write your message")
             elif cmd == "stop rec":
                 allow_rec = False
             elif cmd == "start rec":
