@@ -21,7 +21,6 @@ class RXTX:
         self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [0,1], [0])
         self.encode = SPPEncoder()
         self.last_state = ""
-        self._rx_stream_started = False  # FIX: track whether stream is already running
         self.barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
         self.new_buffer = np.zeros(20000, dtype=np.complex64)
 
