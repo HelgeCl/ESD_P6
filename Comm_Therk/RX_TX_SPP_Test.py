@@ -58,7 +58,7 @@ if __name__ == "__main__":
                 print("Received undecodable packet, ignoring")
                 continue
 
-            print(f"Decoded message: {decoded_msg}")
+            print(f"Decoded message: {decoded_msg | {'data': bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')}}")
 
             # FIX: Respond immediately in the same iteration, not on the next loop.
             # Previously ack_req was set True and the ACK was sent one full loop
@@ -66,5 +66,5 @@ if __name__ == "__main__":
             if decoded_msg.get('data') == '5245513a4143544956453f':
                 print("Received REQ:ACTIVE? — sending ACK immediately")
                 radio.transmit("ACK:PI1HERE!")
-            else:
-                print("Unknown message received, stopping receive")
+            #else:
+                #print("Unknown message received, stopping receive")
