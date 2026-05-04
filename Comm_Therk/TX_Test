@@ -1,3 +1,7 @@
 from Git.ESD_P6.Comm_Therk.TX import transmit
+from Git.ESD_P6.Comm_Therk.TX_RX import RXTX
 
-transmit("Fat ass monkey!")  # Test message, can be changed to anything you'd like
+radio = RXTX()
+
+radio.transmit("REQ:ACTIVE?")
+transmit("REQ:ACTIVE?")  # Test message, can be changed to anything you'd like

@@ -53,7 +53,10 @@ class SPPEncoder:
         type_bit = format(packet_type, '01b')
         sec_hdr_bit = format(sec_hdr_flag, '01b')
         apid_bits = format(apid, '011b')
-
+        print(f"Vers: {Vers_bits}")
+        print(f"Type: {type_bit}")
+        print(f"SecHdr: {sec_hdr_bit}")
+        print(f"APID: {apid_bits}")
         word1 = Vers_bits + type_bit + sec_hdr_bit + apid_bits
         # Next 16 bits: seq_flag (2), sequence_count (14)
         seq_flag_bit = format(seq_flag, '02b')
@@ -63,10 +66,10 @@ class SPPEncoder:
         word3 = format(packet_data_length, '016b')
         #print(f"{word1, word2, word3}")
         prime_header = word1 + word2 + word3
-        #print(f"{prime_header}")
+        print(f"{prime_header}")
         # Assemble final packet
         packet = prime_header + data_field
-        print(f"Transmitting: {format(int(packet,2),'x')}")
+        print(f"Encoded packet: {format(int(packet,2),'x')}")
         return packet
 
 

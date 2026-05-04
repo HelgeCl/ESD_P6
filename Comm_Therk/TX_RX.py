@@ -224,45 +224,33 @@ class RXTX:
                 
 
     def transmit(self, msg: str):
-        """Transmit a message"""
         if self.last_state != 'TX':
             self.sdr.setup_transmit()
             self.last_state = 'TX'
 
-        message = msg
         packet = self.encode.encode(
-            packet_type=0,        # telecommand
-            apid=1, # Predefineret apid
-            seq_flag=3,           # 0 for continuation, 1 for first, 2 for last, 3 for sole
-            sequence_count=0, # Fortæller hvilket nr. pakket dette er, kun relevant
-            data=message, # Obv. data i dette tilfælde 'message'
-            sec_hdr_flag=0 # 0 for ingen sec header, 1 for sec header
+            packet_type=0,
+            apid=102,
+            seq_flag=3,
+            sequence_count=0,
+            data=msg,
+            sec_hdr_flag=0
         )
-        #bits = ''.join(format(ord(i), '08b') for i in message)
-        data_symbols = np.array([1 if b == '1' else -1 for b in packet])
-        
-        # Combine and Oversample
-        payload = np.concatenate((self.barker_base, data_symbols))
-        samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
-        """""
-        carrier = np.ones(20, dtype=np.float32)  # 20 bits of just carrier
-        # required to get enough energy for FFT CFO
 
-        msg = str(msg)  # Ensures msg is string
+        data_symbols = np.array([1 if b == '1' else -1 for b in packet], dtype=np.float32)
 
-        # msg.encode from str to bytes, from buffer changes datatype to uint8
-        msg_as_bytes = np.frombuffer(msg.encode('utf-8'), dtype=np.uint8)
-        bits = np.unpackbits(msg_as_bytes)  # From e.g. 70 to bits e.g. [0, 1, 0, 0, ...]
-        data_symbols = (bits.astype(np.float32) * 2) - 1  # from bits to +-1:
-        # (1 * 2) - 1 = 1
-        # (0 * 2) - 1 = -1
-        # Float32 to ensure samples is in correct datatype complex 64 for the SDR
+        # CFO preamble tone — long enough for FFT estimation after downsampling
+        # After DS factor 4: 800 samples / 4 = 200 DS samples, enough for 8192-pt FFT
+        t = np.arange(800) / self.samples_pr_bit
+        cfo_preamble = np.exp(1j * 2 * np.pi * 0.1 * t).astype(np.complex64)
 
-        # Combine and insert more samples pr. bit
-        payload = np.concatenate((carrier, self.barker_base, data_symbols, carrier))
-        samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
-        """""
+        # Build payload ONCE, then oversample ONCE
+        payload = np.concatenate((self.barker_base, data_symbols)).astype(np.float32)
+        data_samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
 
+        silence = np.zeros(self.samples_pr_bit * 50, dtype=np.complex64)
+
+        samples = np.concatenate((silence, cfo_preamble, data_samples, silence))
         self.sdr.transmit(samples)
 
 

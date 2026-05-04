@@ -34,7 +34,7 @@ def transmit(TXMessage):
     message = TXMessage
     packet = spp.encode(
         packet_type=0,        # telecommand
-        apid=123, # Predefineret apid
+        apid=102, # Predefineret apid
         seq_flag=3,           # 0 for continuation, 1 for first, 2 for last, 3 for sole
         sequence_count=0, # Fortæller hvilket nr. pakket dette er, kun relevant
         data=message, # Obv. data i dette tilfælde 'message'
