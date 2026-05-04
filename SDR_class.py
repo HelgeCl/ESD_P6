@@ -5,7 +5,7 @@ import time
 
 class SDR:
     def __init__(self, sample_rate, center_freq, rx_gain, tx_gain, chan):
-        self.channels = chan #[0, 1]
+        self.channels = chan  # [0, 1]
 
         self.usrp = uhd.usrp.MultiUSRP()
 
@@ -32,7 +32,7 @@ class SDR:
         self.usrp.set_time_source("internal")
         self.usrp.set_time_now(uhd.types.TimeSpec(0.0))
         self.usrp.set_time_unknown_pps(uhd.types.TimeSpec(0.0))
-        #time.sleep(10)  # Time to lock, and "warmup" time
+        time.sleep(10)  # Time to lock, and "warmup" time
         print("SDR setup done")
 
     def set_channel_rx2(self):
