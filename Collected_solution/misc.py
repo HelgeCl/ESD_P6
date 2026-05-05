@@ -4,13 +4,14 @@ from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 
 
 def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5):
-    bits = radio.receive(timeout=timeout)
-    if bits is not None:
-        for seq in bits:
-            decoded_msg = decoder.decode(seq)
-            decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
-            if decoded_msg.get('data') == ack_string:
-                return True
+    stream = radio.receive(timeout=timeout)
+    if stream is not None:
+        for package in stream:
+            decoded_msg = decoder.decode(package)
+            if decoded_msg is not None:
+                decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
+                if decoded_msg == ack_string:
+                    return True
     return False
 
 
