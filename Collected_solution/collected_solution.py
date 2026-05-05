@@ -4,7 +4,7 @@ import random
 from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack
 from Git.ESD_P6.AoA.DoA import delay_and_sum
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
-
+from time import sleep
 
 IS_PI1 = (gethostname() == "pi1")
 
@@ -17,18 +17,18 @@ else:
     decoder = SPPDecoder(101, 1e6)
     radio = RXTX(tx_apid=102)
 
-
 while True:
     # Trying to detect the other
     if IS_PI1:
-        radio.transmit_pure_sine(20000+random.randint(1000, 15000))
-        bits = radio.receive(timeout=1)
-        if bits is not None:
-            decoded_msg = decoder.decode(bits)
-            if decoded_msg is not None:
-                decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
-                if decoded_msg.get('data') == "connection":
-                    print("Received answer from Pi2, sending ACK")
+        radio.transmit_pure_sine(40000+random.randint(1000, 15000))
+        stream = radio.receive(timeout=5)
+        if stream is not None:
+            for package in stream:
+                decoded_msg = decoder.decode(package)
+                if decoded_msg is not None:
+                    decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
+                    if decoded_msg == "connection":
+                        print("Received answer from Pi2, sending ACK")
                     radio.transmit("ACK:PI1")
                     case = "transmit_data"
                     break
@@ -41,6 +41,12 @@ while True:
             print("Detected other station, it doesnt know us yet")
             angle = delay_and_sum(sig, 0.5, 1000)
             print("Angle is: ", angle)
+            print("Waiting for listing period")
+            while sig is not None:
+                sig = radio.sample_and_rtn(10000)
+                sig = detect_signal(sig, 2000, threshold)
+            sleep(0.5)
+            print("Transmitting")
             radio.transmit("connection")
             case = "receive_data"
 
@@ -49,14 +55,15 @@ while True:
                 break
             else:
                 print("Did not receive ACK, checking if Pi1 is in transmit mode")
-                bits = radio.receive()
-                if bits is not None:
-                    decoded_msg = decoder.decode(bits)
-                    if decoded_msg is not None:
-                        print("ACK didnt reach us, but msg reaced Pi1")
-                        break
-                    else:
-                        print("Full retry")
+                stream = radio.receive()
+                if stream is not None:
+                    for package in stream:
+                        decoded_msg = decoder.decode(package)
+                        if decoded_msg is not None:
+                            print("ACK didnt reach us, but msg reached Pi1")
+                            break
+                        else:
+                            print("Full retry")
                 else:
                     print("Full retry, no bits")
 
@@ -80,21 +87,22 @@ while True:
             case = "receive_data"
 
         case "receive_data":
-            bits = radio.receive()
-            if bits is not None:
-                decoded_msg = decoder.decode(bits)
-                if decoded_msg is not None:
-                    decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
-                    if decoded_msg.get('data') != "":
-                        if IS_PI1 is True:
-                            print("From Pi2 the following has been received (sending ACK):")
-                            print(decoded_msg.get('data'))
-                            radio.transmit("ACK:PI1")
-                        else:
-                            print("From Pi1 the following has been received (sending ACK):")
-                            print(decoded_msg.get('data'))
-                            radio.transmit("ACK:PI2")
-                        case = "AoA"
+            stream = radio.receive()
+            if stream is not None:
+                for package in stream:
+                    decoded_msg = decoder.decode(package)
+                    if decoded_msg is not None:
+                        decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
+                        if decoded_msg != "":
+                            if IS_PI1 is True:
+                                print("From Pi2 the following has been received (sending ACK):")
+                                print(decoded_msg)
+                                radio.transmit("ACK:PI1")
+                            else:
+                                print("From Pi1 the following has been received (sending ACK):")
+                                print(decoded_msg)
+                                radio.transmit("ACK:PI2")
+                            case = "AoA"
 
         case "AoA":
             sig = radio.sample_and_rtn(20000)

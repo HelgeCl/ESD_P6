@@ -30,7 +30,7 @@ class SPPDecoder:
         Returns:
             Dictionary containing decoded packet or None if invalid
         """
-        self.buffer.extend(bits)
+        self.buffer = bits
         """""
         print(self.buffer)
 
