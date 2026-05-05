@@ -88,7 +88,7 @@ while True:
         case "receive_data":
             print("receiving data")
             msg = recv_data(radio, decoder)
-            if msg is "carrier":
+            if msg == "carrier":
                 case = "transmit_carrier"
             elif msg:
                 if IS_PI1 is True:
