@@ -112,5 +112,3 @@ while True:
                 angle = delay_and_sum(sig, 0.5, 1000)
                 print("Angle to move is ", angle)
                 case = "transmit_data"
-            else:
-                case = "receive_data"  # It seems we have missed our previous ACK
