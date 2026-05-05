@@ -1,7 +1,7 @@
 from socket import gethostname
 from Git.ESD_P6.Comm.TX_RX import RXTX
 import random
-from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack
+from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack, recv_data
 from Git.ESD_P6.AoA.DoA import delay_and_sum
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 from time import sleep
@@ -24,17 +24,11 @@ while True:
     # Trying to detect the other
     if IS_PI1:
         radio.transmit_pure_sine(40000+random.randint(1000, 15000))
-        stream = radio.receive(timeout=5)
-        if stream is not None:
-            for package in stream:
-                decoded_msg = decoder.decode(package)
-                if decoded_msg is not None:
-                    decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
-                    if decoded_msg == "connection":
-                        print("Received answer from Pi2, sending ACK")
-                        sleep(0.1) #Ensure Pi2 is in recv mode
-                        radio.transmit("ACK:PI1")
-                        case = "transmit_data"
+        if recv_data(radio, decoder) == "connection":
+            print("Received answer from Pi2, sending ACK")
+            sleep(0.1) #Ensure Pi2 is in recv mode
+            radio.transmit("ACK:PI1")
+            case = "transmit_data"
         if case is not None:
             break
 
@@ -60,17 +54,11 @@ while True:
                 break
             else:
                 print("Did not receive ACK, checking if Pi1 is in transmit mode")
-                stream = radio.receive()
-                if stream is not None:
-                    for package in stream:
-                        decoded_msg = decoder.decode(package)
-                        if decoded_msg is not None:
-                            print("ACK didnt reach us, but msg reached Pi1")
-                            break
-                        else:
-                            print("Full retry")
+                if recv_data(radio, decoder) is not None:
+                    print("ACK didnt reach us, but msg reached Pi1")
+                    break
                 else:
-                    print("Full retry, no bits")
+                    print("Full retry")
 
 
 
@@ -81,41 +69,43 @@ while True:
             if IS_PI1 is True:
                 radio.transmit("Some important data")
                 if check_ack(radio, decoder, "ACK:PI2"):
-                    case = "transmit_carrier"
+                    case = "wait_carrier"
             else:
                 radio.transmit("Some SUPER-important data")
                 if check_ack(radio, decoder, "ACK:PI1"):
-                    case = "transmit_carrier"
+                    case = "wait_carrier"
+
+        case "wait_carrier":
+            print("wait carrier")
+            if recv_data(radio, decoder) == "carrier":
+                case = "transmit_carrier"
 
         case "transmit_carrier":
             print("Transmitting carrier")
-            # NB TEKNISK set er der en chace for at begge er i reciveing data
             radio.transmit_pure_sine(40000)
             case = "receive_data"
 
         case "receive_data":
             print("receiving data")
-            stream = radio.receive()
-            if stream is not None:
-                for package in stream:
-                    decoded_msg = decoder.decode(package)
-                    if decoded_msg is not None:
-                        decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
-                        if decoded_msg != "":
-                            if IS_PI1 is True:
-                                print("From Pi2 the following has been received (sending ACK):")
-                                print(decoded_msg)
-                                sleep(0.1) #Ensure Pi2 is in recv mode
-                                radio.transmit("ACK:PI1")
-                            else:
-                                print("From Pi1 the following has been received (sending ACK):")
-                                print(decoded_msg)
-                                sleep(0.1)  #Ensure Pi1 is in recv mode
-                                radio.transmit("ACK:PI2")
-                            case = "AoA"
+            msg = recv_data(radio, decoder)
+            if msg is "carrier":
+                case = "transmit_carrier"
+            elif msg:
+                if IS_PI1 is True:
+                    print("From Pi2 the following has been received (sending ACK):")
+                    print(msg)
+                    sleep(0.1) #Ensure Pi2 is in recv mode
+                    radio.transmit("ACK:PI1")
+                else:
+                    print("From Pi1 the following has been received (sending ACK):")
+                    print(msg)
+                    sleep(0.1)  #Ensure Pi1 is in recv mode
+                    radio.transmit("ACK:PI2")
+                case = "AoA"
 
         case "AoA":
             print("AoA")
+            radio.transmit("carrier")
             sig = radio.sample_and_rtn(20000)
             sig = detect_signal(sig, 2000, threshold)
             if sig is not None:
