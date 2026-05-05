@@ -29,9 +29,10 @@ while True:
                     decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
                     if decoded_msg == "connection":
                         print("Received answer from Pi2, sending ACK")
-                    radio.transmit("ACK:PI1")
-                    case = "transmit_data"
-                    break
+                        sleep(0.1) #Ensure Pi2 is in recv mode
+                        radio.transmit("ACK:PI1")
+                        case = "transmit_data"
+                        break
 
     else:
         sig = radio.sample_and_rtn(20000)
@@ -97,10 +98,12 @@ while True:
                             if IS_PI1 is True:
                                 print("From Pi2 the following has been received (sending ACK):")
                                 print(decoded_msg)
+                                sleep(0.1) #Ensure Pi2 is in recv mode
                                 radio.transmit("ACK:PI1")
                             else:
                                 print("From Pi1 the following has been received (sending ACK):")
                                 print(decoded_msg)
+                                sleep(0.1)  #Ensure Pi1 is in recv mode
                                 radio.transmit("ACK:PI2")
                             case = "AoA"
 
