@@ -82,7 +82,7 @@ while True:
 
         case "transmit_carrier":
             #print("Transmitting carrier")
-            radio.transmit_pure_sine(100000)
+            radio.transmit_pure_sine(200000)
             case = "receive_data"
 
         case "receive_data":
