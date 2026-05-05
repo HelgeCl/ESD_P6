@@ -30,6 +30,7 @@ while True:
                 if decoded_msg.get('data') == "connection":
                     print("Received answer from Pi2, sending ACK")
                     radio.transmit("ACK:PI1")
+                    case = "transmit_data"
                     break
 
     else:
@@ -41,6 +42,7 @@ while True:
             angle = delay_and_sum(sig, 0.5, 1000)
             print("Angle is: ", angle)
             radio.transmit("connection")
+            case = "receive_data"
 
             if check_ack(radio, decoder, "ACK:PI1"):
                 print("received ACK")
@@ -50,7 +52,6 @@ while True:
                 break
 
 
-case = "Transmit_data"
 while True:
     match case:
         case "transmit_data":
