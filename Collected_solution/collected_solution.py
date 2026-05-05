@@ -65,7 +65,7 @@ while True:
 while True:
     match case:
         case "transmit_data":
-            print("Transmitting data")
+            #print("Transmitting data")
             if IS_PI1 is True:
                 radio.transmit("Some important data")
                 if check_ack(radio, decoder, "ACK:PI2"):
@@ -76,17 +76,17 @@ while True:
                     case = "wait_carrier"
 
         case "wait_carrier":
-            print("wait carrier")
+            #print("wait carrier")
             if recv_data(radio, decoder) == "carrier":
                 case = "transmit_carrier"
 
         case "transmit_carrier":
-            print("Transmitting carrier")
+            #print("Transmitting carrier")
             radio.transmit_pure_sine(100000)
             case = "receive_data"
 
         case "receive_data":
-            print("receiving data")
+            #print("receiving data")
             msg = recv_data(radio, decoder)
             if msg == "carrier":
                 case = "transmit_carrier"
@@ -104,7 +104,7 @@ while True:
                 case = "AoA"
 
         case "AoA":
-            print("AoA")
+            #print("AoA")
             radio.transmit("carrier")
             sig = radio.sample_and_rtn(50000)
             sig = detect_signal(sig, 2000, threshold)

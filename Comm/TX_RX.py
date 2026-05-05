@@ -218,7 +218,7 @@ class RXTX:
             [tail_silence]
         )
 
-        print(f"Transmitting '{msg}' ({repeat}x)...")
+        #print(f"Transmitting '{msg}' ({repeat}x)...")
         self.sdr.transmit(repeated)
 
     def transmit_pure_sine(self, amount_samples: int):
