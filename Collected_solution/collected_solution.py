@@ -24,7 +24,7 @@ while True:
         bits = radio.receive(timeout=1)
         if bits is not None:
             decoded_msg = decoder.decode(bits)
-            if bits is not None:
+            if decoded_msg is not None:
                 decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
                 if decoded_msg.get('data') == "connection":
                     print("Received answer from Pi2, sending ACK")
