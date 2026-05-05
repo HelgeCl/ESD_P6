@@ -8,7 +8,7 @@ from time import sleep
 
 IS_PI1 = (gethostname() == "pi1")
 
-threshold = 50
+threshold = 5
 
 if IS_PI1 is True:
     decoder = SPPDecoder(102, 1e6)
