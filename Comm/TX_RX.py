@@ -23,6 +23,7 @@ class RXTX:
         self.last_state = ""
         self.barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
         self.new_buffer = np.zeros(20000, dtype=np.complex64)
+        self.new_buffer_2D = np.zeros((2, 20000), dtype=np.complex64)
 
     def __center_normalize(self, sig):
         """Centers and normalizes the signal"""
@@ -70,6 +71,7 @@ class RXTX:
 
     def recv_buffer(self, size: int):
         self.new_buffer = np.zeros(size, dtype=np.complex64)
+        self.new_buffer_2D = np.zeros((2, size), dtype=np.complex64)
 
     def receive(self, length: int = 256, timeout: float = 5.0):
         """
@@ -94,17 +96,19 @@ class RXTX:
             self._rx_stream_started = True
             self.last_state = 'RX'
         # … not here on every call (old code had it here unconditionally)
-        self.sdr.start_receive_cont()
 
         barker = np.repeat(self.barker_base, self.samples_pr_bit_ds)
         required_len = len(barker) + (length * self.samples_pr_bit_ds)
 
         wrap_over = []
         deadline = time.monotonic() + timeout
-        rtn = None
+        rtn = []
+        self.sdr.start_receive_cont()
+        
 
         while time.monotonic() < deadline:
-            self.sdr.receive_cont_samples(self.new_buffer)
+            self.sdr.receive_cont_samples(self.new_buffer_2D)
+            self.new_buffer = self.new_buffer_2D[0]
             new_buffer_ds = self.new_buffer[::self.ds]
 
             buffer = np.concatenate((wrap_over, new_buffer_ds))
@@ -154,7 +158,7 @@ class RXTX:
                                                  start_bit_idx, length)
                     rtn.append(bits)
                    
-            if rtn is not None:
+            if rtn != []:
                 self.sdr.stop_receive_cont()
                 self.new_buffer.fill(0) 
                 return rtn

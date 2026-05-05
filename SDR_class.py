@@ -44,7 +44,7 @@ class SDR:
             self.usrp.set_rx_antenna('TX/RX', chan)
 
     def setup_receiving(self):
-        st_args = uhd.usrp.StreamArgs("fc32", "sc16")
+        st_args = uhd.usrp.StreamArgs("fc32", "sc8") #Required, as dual stream is too much data for the poor Pi's USB controller
         st_args.channels = self.channels
         self.rx_streamer = self.usrp.get_rx_stream(st_args)
 
@@ -54,7 +54,7 @@ class SDR:
         self.rx_stream_cmd.stream_now = False
 
         self.rx_cont_stream_cmd = uhd.types.StreamCMD(uhd.types.StreamMode.start_cont)
-        self.rx_cont_stream_cmd.stream_now = True
+        self.rx_cont_stream_cmd.stream_now = False
 
     def receive_num(self, num_samples):
         num_samples = int(num_samples)
@@ -78,6 +78,7 @@ class SDR:
         return sig_ch1, sig_ch2
 
     def start_receive_cont(self):
+        self.rx_cont_stream_cmd.time_spec = self.usrp.get_time_now() + uhd.types.TimeSpec(0.05)
         self.rx_streamer.issue_stream_cmd(self.rx_cont_stream_cmd)
 
     def stop_receive_cont(self):
@@ -103,4 +104,10 @@ class SDR:
         self.tx_metadata.end_of_burst = True
 
     def transmit(self, samples):
-        self.tx_streamer.send(samples, self.tx_metadata)
+        if len(self.channels) == 2 and samples.ndim == 1:
+            samples_2d = np.vstack((samples, np.zeros_like(samples))).astype(np.complex64)
+            self.tx_streamer.send(samples_2d, self.tx_metadata)
+        else:
+            self.tx_streamer.send(samples, self.tx_metadata)
+        
+    
