@@ -73,6 +73,7 @@ while True:
 while True:
     match case:
         case "transmit_data":
+            print("Transmitting data")
             if IS_PI1 is True:
                 radio.transmit("Some important data")
                 if check_ack(radio, decoder, "ACK:PI2"):
@@ -83,11 +84,13 @@ while True:
                     case = "transmit_carrier"
 
         case "transmit_carrier":
+            print("Transmitting carrier")
             # NB TEKNISK set er der en chace for at begge er i reciveing data
             radio.transmit_pure_sine(40000)
             case = "receive_data"
 
         case "receive_data":
+            print("receiving data")
             stream = radio.receive()
             if stream is not None:
                 for package in stream:
@@ -108,6 +111,7 @@ while True:
                             case = "AoA"
 
         case "AoA":
+            print("AoA")
             sig = radio.sample_and_rtn(20000)
             sig = detect_signal(sig, 2000, threshold)
             if sig is not None:
