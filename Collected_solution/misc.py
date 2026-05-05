@@ -25,20 +25,16 @@ def detect_signal(signal, window_size, threshold):
     # Iterate through the signal, non-overlapping steps
     i = 0
     while i < num_samples:
-        print("i: ", i)
         window = signal[0][i: i + window_size]
-
         fft_result = np.fft.fft(window, n=8192)
 
         magnitude = np.abs(fft_result)
         max_val = np.max(magnitude)
         mean_val = np.mean(magnitude)
         diff = max_val - mean_val
-        print("diff is: ", diff)
 
         if diff > threshold:
             consecutive_count += 1
-            print("cont_cont ", consecutive_count)
         else:
             consecutive_count = 0  # Reset if the streak is broken
 
