@@ -48,8 +48,18 @@ while True:
                 print("received ACK")
                 break
             else:
-                print("Did not receive ACK, however dont care")
-                break
+                print("Did not receive ACK, checking if Pi1 is in transmit mode")
+                bits = radio.receive()
+                if bits is not None:
+                    decoded_msg = decoder.decode(bits)
+                    if decoded_msg is not None:
+                        print("ACK didnt reach us, but msg reaced Pi1")
+                        break
+                    else:
+                        print("Full retry")
+                else:
+                    print("Full retry, no bits")
+
 
 
 while True:
