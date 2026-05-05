@@ -17,6 +17,9 @@ else:
     decoder = SPPDecoder(101, 1e6)
     radio = RXTX(tx_apid=102)
 
+case = None
+
+
 while True:
     # Trying to detect the other
     if IS_PI1:
@@ -32,7 +35,8 @@ while True:
                         sleep(0.1) #Ensure Pi2 is in recv mode
                         radio.transmit("ACK:PI1")
                         case = "transmit_data"
-                        break
+        if case is not None:
+            break
 
     else:
         sig = radio.sample_and_rtn(20000)
