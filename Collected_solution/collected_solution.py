@@ -82,7 +82,7 @@ while True:
 
         case "transmit_carrier":
             print("Transmitting carrier")
-            radio.transmit_pure_sine(40000)
+            radio.transmit_pure_sine(100000)
             case = "receive_data"
 
         case "receive_data":
@@ -106,7 +106,7 @@ while True:
         case "AoA":
             print("AoA")
             radio.transmit("carrier")
-            sig = radio.sample_and_rtn(20000)
+            sig = radio.sample_and_rtn(50000)
             sig = detect_signal(sig, 2000, threshold)
             if sig is not None:
                 angle = delay_and_sum(sig, 0.5, 1000)
