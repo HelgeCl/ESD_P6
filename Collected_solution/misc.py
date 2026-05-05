@@ -19,25 +19,31 @@ def detect_signal(signal, window_size, threshold):
     Performs FFT returns the middle window of three consecutive windows 
     that exceed threshold.
     """
-    num_samples = len(signal)
+    num_samples = len(signal[0])
     consecutive_count = 0
 
     # Iterate through the signal, non-overlapping steps
     i = 0
     while i < num_samples:
-        window = signal[i: i + window_size]
+        print("i: ", i)
+        window = signal[0][i: i + window_size]
 
         fft_result = np.fft.fft(window, n=8192)
 
-        magnitude = np.max(np.abs(fft_result))
+        magnitude = np.abs(fft_result)
+        max_val = np.max(magnitude)
+        mean_val = np.mean(magnitude)
+        diff = max_val - mean_val
+        print("diff is: ", diff)
 
-        if magnitude > threshold:
+        if diff > threshold:
             consecutive_count += 1
+            print("cont_cont ", consecutive_count)
         else:
             consecutive_count = 0  # Reset if the streak is broken
 
         if consecutive_count == 3:
-            return signal[i - window_size: i]  # Return last window
+            return signal[:,i - window_size: i]  # Return last window
 
         i = i+window_size
 

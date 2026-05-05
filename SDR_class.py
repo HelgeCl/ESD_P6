@@ -72,10 +72,8 @@ class SDR:
         self.rx_streamer.recv(buffer, self.rx_metadata)
 
         buffer = buffer[:, 150:]  # Remove the first 150 samples (corrupted)
-        sig_ch1 = buffer[0]
-        sig_ch2 = buffer[1]
 
-        return sig_ch1, sig_ch2
+        return buffer[:, 150:]
 
     def start_receive_cont(self):
         self.rx_cont_stream_cmd.time_spec = self.usrp.get_time_now() + uhd.types.TimeSpec(0.05)

@@ -5,9 +5,9 @@ from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack
 from Git.ESD_P6.AoA.DoA import delay_and_sum
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 
-IS_PI1 = True
+IS_PI1 = False
 
-threshold = 150
+threshold = 50
 
 if IS_PI1 is True:
     decoder = SPPDecoder(102, 1e6)
@@ -32,9 +32,9 @@ while True:
 
     else:
         sig = radio.sample_and_rtn(20000)
-        sig = detect_signal(sig, 2000, threshold)  # ADJUST THRESHOLD!
+        sig = detect_signal(sig, 2000, threshold)
 
-        if sig != None:
+        if sig is not None:
             print("Detected other station, it doesnt know us yet")
             angle = delay_and_sum(sig, 0.5, 1000)
             print("Angle is: ", angle)
