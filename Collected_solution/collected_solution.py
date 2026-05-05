@@ -68,11 +68,11 @@ while True:
             #print("Transmitting data")
             if IS_PI1 is True:
                 radio.transmit("Some important data")
-                if check_ack(radio, decoder, "ACK:PI2"):
+                if check_ack(radio, decoder, "ACK:PI2", 0.5):
                     case = "wait_carrier"
             else:
                 radio.transmit("Some SUPER-important data")
-                if check_ack(radio, decoder, "ACK:PI1"):
+                if check_ack(radio, decoder, "ACK:PI1", 0.5):
                     case = "wait_carrier"
 
         case "wait_carrier":
