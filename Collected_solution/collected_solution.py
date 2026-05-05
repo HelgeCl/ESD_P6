@@ -1,11 +1,12 @@
-
+from socket import gethostname
 from Git.ESD_P6.Comm.TX_RX import RXTX
 import random
 from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack
 from Git.ESD_P6.AoA.DoA import delay_and_sum
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 
-IS_PI1 = True
+
+IS_PI1 = (gethostname() == "pi1")
 
 threshold = 50
 
