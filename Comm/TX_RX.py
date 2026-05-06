@@ -238,7 +238,9 @@ class RXTX:
         data_samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
         
         #Building the repeated samples to be transmitted
-        burst = np.concatenate((carrier, data_samples))
+        gap = np.zeros(self.samples_pr_bit*100, dtype=np.float32)
+        #Gab required to space apart our repeats. Else we run the risk of a multipath causing interference
+        burst = np.concatenate((gap, data_samples, carrier))
         repeated = np.concatenate([burst for _ in range(repeat)]).astype(np.complex64)
 
         self.sdr.transmit(repeated)

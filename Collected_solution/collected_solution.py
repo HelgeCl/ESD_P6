@@ -18,10 +18,6 @@ else:
     radio = RXTX(tx_apid=102)
 
 case = None
-while True:
-    radio.transmit("Some important data")
-    if check_ack(radio, decoder, "ACK:PI2", 0.5):
-        print("acked")
 
 while True:
     # Trying to detect the other
