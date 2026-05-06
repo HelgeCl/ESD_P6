@@ -79,9 +79,6 @@ class RXTX:
         """
         if self.last_state != 'RX':
             self.sdr.setup_receiving()
-            # FIX: small settle delay to let the UHD stream stabilise
-            # before reading. Avoids consuming overrun/garbage buffers.
-            time.sleep(0.05)
             self.last_state = 'RX'
 
         barker = np.repeat(self.barker_base, self.samples_pr_bit_ds)
@@ -153,7 +150,6 @@ class RXTX:
         """
         if self.last_state != 'TX':
             self.sdr.setup_transmit()
-            time.sleep(0.05)   # let the TX stream settle before first send
             self.last_state = 'TX'
 
         packet = self.encode.encode(
