@@ -18,7 +18,10 @@ else:
     radio = RXTX(tx_apid=102)
 
 case = None
-
+while True:
+    radio.transmit("Some important data")
+    if check_ack(radio, decoder, "ACK:PI2", 0.5):
+        print("acked")
 
 while True:
     # Trying to detect the other
@@ -90,7 +93,6 @@ while True:
             if msg == "carrier":
                 case = "transmit_carrier"
             elif msg: 
-                print(msg)
                 if "ACK" in msg:
                     continue #In this state we should not receive acks
                 if IS_PI1 is True:

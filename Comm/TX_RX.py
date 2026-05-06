@@ -230,28 +230,16 @@ class RXTX:
             sec_hdr_flag=0
         )
 
-        data_symbols = np.array([1 if b == '1' else -1 for b in packet], dtype=np.float32)
-
-        # CFO preamble tone (800 samples → 200 after DS=4, enough for 8192-pt FFT)
-        t = np.arange(800) / self.samples_pr_bit
-        cfo_preamble = np.exp(1j * 2 * np.pi * 0.1 * t).astype(np.complex64)
+        data_symbols = np.array([1 if bit == '1' else -1 for bit in packet], dtype=np.float32)
+        carrier = np.ones(self.samples_pr_bit*20, dtype=np.float32)  # 20 bits of just carrier
+        # required to get enough energy for FFT CFO
 
         payload = np.concatenate((self.barker_base, data_symbols)).astype(np.float32)
         data_samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
-
-        # Gap between repetitions: enough silence so the receiver's barker
-        # correlator sees a clean separation between packets.
-        inter_packet_silence = np.zeros(self.samples_pr_bit * 200, dtype=np.complex64)
-        lead_silence = np.zeros(self.samples_pr_bit * 50, dtype=np.complex64)
-        tail_silence = np.zeros(self.samples_pr_bit * 50, dtype=np.complex64)
-
-        # Build a single waveform with `repeat` packet bursts
-        burst = np.concatenate((cfo_preamble, data_samples))
-        repeated = np.concatenate(
-            [lead_silence] +
-            [np.concatenate((burst, inter_packet_silence)) for _ in range(repeat)] +
-            [tail_silence]
-        )
+        
+        #Building the repeated samples to be transmitted
+        burst = np.concatenate((carrier, data_samples))
+        repeated = np.concatenate([burst for _ in range(repeat)]).astype(np.complex64)
 
         self.sdr.transmit(repeated)
 

@@ -5,7 +5,8 @@ class SPPEncoder:
     def __init__(self, version=0):
         """
         Initialize Space Packet encoder.
-        :param version: CCSDS version number (3 bits, default 0 for CCSDS 133.0-B)
+        Args:
+            version, must be 3 bit integer (between 0 and 7)
         """
         if not (0 <= version <= 7):
             raise ValueError("Version must be a 3-bit integer (0-7)")
@@ -14,15 +15,17 @@ class SPPEncoder:
     def encode(self, packet_type, apid, seq_flag, sequence_count, data,
                sec_hdr_flag, sec_hdr_data=b''):
         """
-        Encode a Space Packet according to CCSDS 133.0-B.
-        :param packet_type: 0 = telecommand, 1 = telemetry (1 bit)
-        :param apid: Application Process Identifier (11 bits, 0-2047)
-        :param seq_flag: Sequence flags (2 bits: 00=continuation, 01=first, 10=last, 11=sole)
-        :param sequence_count: Packet sequence count (14 bits, 0-16383)
-        :param data: User data as bytes (may be empty)
-        :param sec_hdr_flag: Secondary header present flag (1 bit, 0 or 1)
-        :param sec_hdr_data: Secondary header bytes (required if sec_hdr_flag == 1)
-        :return: Encoded packet as bytes
+        Encode a Space Packet according to CCSDS
+        args:
+            packet_type: 0 = telecommand, 1 = telemetry (1 bit)
+            apid: Application Process Identifier (11 bits, 0-2047)
+            seq_flag: Sequence flags (2 bits: 00=continuation, 01=first, 10=last, 11=sole)
+            sequence_count: Packet sequence count (14 bits, 0-16383)
+            data: User data as bytes (may be empty)
+            sec_hdr_flag: Secondary header present flag (1 bit, 0 or 1)
+            sec_hdr_data: Secondary header bytes (required if sec_hdr_flag == 1)
+        returns:
+            Encoded packet as bytes
         """
         # Validate inputs
         if not (0 <= apid <= 2047):
@@ -39,14 +42,21 @@ class SPPEncoder:
             raise ValueError("Secondary header data must be bytes")
 
         # Build the complete data field (secondary header + user data)
-        data_field = (sec_hdr_data if sec_hdr_flag else '') + \
-            ''.join(format(ord(i), '08b') for i in data)
+        data_field = ''
+        if sec_hdr_flag:
+            data_field = sec_hdr_data
+        
+        for i in data:
+            data_field = data_field + str(format(ord(i), '08b'))
+            #ord(i) -> convert from ASCII to integer
+            #Format -> format should be 8 bit bytes
+        
 
         if len(data_field) == 0:
             raise ValueError(
                 "Packet data field cannot be empty (need at least 1 octet of user data or secondary header)")
 
-        packet_data_length = math.ceil(len(data_field)/8) - 1
+        packet_data_length = math.ceil(len(data_field)/8) - 1 #Calculate packet length
         if packet_data_length > 65535:
             raise ValueError("Packet data field too long (max 65536 octets)")
 
