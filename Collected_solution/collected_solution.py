@@ -51,6 +51,7 @@ while True:
 
             if check_ack(radio, decoder, "ACK:PI1"):
                 print("received ACK")
+                sleep(0.1)
                 break
             else:
                 print("Did not receive ACK, checking if Pi1 is in transmit mode")
