@@ -18,7 +18,7 @@ class RXTX:
         self.samples_pr_bit_ds = samples_pr_bit // down_sample_factor
 
         self.tx_apid = tx_apid
-        self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [0,1])
+        self.sdr = SDR(sample_rate, center_freq, gain_rx, gain_tx, [0, 1])
         self.encode = SPPEncoder()
         self.last_state = ""
         self.barker_base = np.array([1, 1, 1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1])
@@ -76,26 +76,13 @@ class RXTX:
     def receive(self, length: int = 256, timeout: float = 5.0):
         """
         Receive a message, listening for up to `timeout` seconds.
-
-        FIX 1: Replaced the hardcoded range(10) loop with a real timeout.
-                At 20ms/buffer the old code only listened for ~200ms total,
-                which is far too short to reliably catch a one-shot transmission
-                that may arrive while the SDR is still switching modes.
-
-        FIX 2: `start_receive_cont()` is now only called once (on mode switch),
-                not on every receive() invocation. Re-issuing the stream command
-                each call causes a brief flush that drops the first few buffers,
-                exactly when the packet is most likely to arrive.
         """
         if self.last_state != 'RX':
             self.sdr.setup_receiving()
             # FIX: small settle delay to let the UHD stream stabilise
             # before reading. Avoids consuming overrun/garbage buffers.
             time.sleep(0.05)
-               # start stream ONCE here …
-            self._rx_stream_started = True
             self.last_state = 'RX'
-        # … not here on every call (old code had it here unconditionally)
 
         barker = np.repeat(self.barker_base, self.samples_pr_bit_ds)
         required_len = len(barker) + (length * self.samples_pr_bit_ds)
@@ -104,7 +91,6 @@ class RXTX:
         deadline = time.monotonic() + timeout
         rtn = []
         self.sdr.start_receive_cont()
-        
 
         while time.monotonic() < deadline:
             self.sdr.receive_cont_samples(self.new_buffer_2D)
@@ -128,12 +114,6 @@ class RXTX:
             noise_floor = np.median(mag_corr)
             peak_val = np.max(mag_corr)
 
-            # FIX: Raised threshold from 0.25 to 0.5 × len(barker).
-            # 0.25 was too permissive — noise peaks were triggering bit extraction
-            # at wrong offsets, producing shifted packets that passed the old loose
-            # SPP header check. At 0.5 the correlator still fires reliably for a
-            # real Barker sequence (which scores ~1.0 after normalisation) while
-            # rejecting most noise-induced false peaks.
             if peak_val > 2 * noise_floor and peak_val > (len(barker) * 0.5):
                 indices = np.where(mag_corr > 0.9 * peak_val)[0]
             else:
@@ -157,12 +137,12 @@ class RXTX:
                     bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
                                                  start_bit_idx, length)
                     rtn.append(bits)
-                   
+
             if rtn != []:
                 self.sdr.stop_receive_cont()
-                self.new_buffer.fill(0) 
+                self.new_buffer.fill(0)
                 return rtn
-                    
+
         # Timed out without finding a packet
         self.sdr.stop_receive_cont()
         return None
@@ -170,20 +150,10 @@ class RXTX:
     def transmit(self, msg: str, repeat: int = 5):
         """
         Transmit a message.
-
-        FIX 3: The packet is now sent `repeat` times (default 5) with a short
-                silence gap between bursts. A single one-shot transmission is
-                extremely fragile: if the receiver is still switching modes or
-                processing a previous buffer, the packet is gone forever.
-                Repeating gives the receiver multiple windows to catch it without
-                requiring continuous-loop transmission.
-
-        FIX 4: Added a settle delay after mode switching, same reason as receive().
         """
         if self.last_state != 'TX':
             self.sdr.setup_transmit()
             time.sleep(0.05)   # let the TX stream settle before first send
-            self._rx_stream_started = False
             self.last_state = 'TX'
 
         packet = self.encode.encode(
@@ -218,7 +188,6 @@ class RXTX:
             [tail_silence]
         )
 
-        #print(f"Transmitting '{msg}' ({repeat}x)...")
         self.sdr.transmit(repeated)
 
     def transmit_pure_sine(self, amount_samples: int):

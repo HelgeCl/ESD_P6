@@ -24,7 +24,7 @@ class SPPEncoder:
         :param sec_hdr_data: Secondary header bytes (required if sec_hdr_flag == 1)
         :return: Encoded packet as bytes
         """
-        # Validate arguments
+        # Validate inputs
         if not (0 <= apid <= 2047):
             raise ValueError("APID must be 0-2047")
         if not (0 <= sequence_count <= 16383):
@@ -56,23 +56,20 @@ class SPPEncoder:
         type_bit = format(packet_type, '01b')
         sec_hdr_bit = format(sec_hdr_flag, '01b')
         apid_bits = format(apid, '011b')
-        #print(f"Vers: {Vers_bits}")
-        #print(f"Type: {type_bit}")
-        #print(f"SecHdr: {sec_hdr_bit}")
-        #print(f"APID: {apid_bits}")
+
         word1 = Vers_bits + type_bit + sec_hdr_bit + apid_bits
+
         # Next 16 bits: seq_flag (2), sequence_count (14)
         seq_flag_bit = format(seq_flag, '02b')
         sequence_count_bit = format(sequence_count, '014b')
         word2 = seq_flag_bit + sequence_count_bit
+
         # Last 16 bits: packet_data_length
         word3 = format(packet_data_length, '016b')
-        # print(f"{word1, word2, word3}")
         prime_header = word1 + word2 + word3
-        #print(f"{prime_header}")
+
         # Assemble final packet
         packet = prime_header + data_field
-        #print(f"Encoded packet: {format(int(packet, 2), 'x')}")
         return packet
 
 
@@ -80,17 +77,11 @@ class SPPEncoder:
 if __name__ == "__main__":
     encoder = SPPEncoder(version=0)  # CCSDS version 0
 
-    # Example 1: No secondary header, user data "Hello World"
     packet1 = encoder.encode(
-        packet_type=0,        # telecommand
+        packet_type=0,
         apid=123,
-        seq_flag=3,           # sole packet
+        seq_flag=3,
         sequence_count=0,
         data="Fat ass monkey!",
         sec_hdr_flag=0
     )
-    # print("Packet without secondary header (hex):", packet1.hex())
-
-    # print("Packet with secondary header (hex):", packet2.hex())
-
-    # Validate packet structure: first 6 bytes = primary header

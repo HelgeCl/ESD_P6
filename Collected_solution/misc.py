@@ -3,9 +3,9 @@ from Git.ESD_P6.Comm.TX_RX import RXTX
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 
 
-def recv_data(radio, decoder):
+def recv_data(radio: RXTX, decoder: SPPDecoder, timeout: float = 5):
     "Only returns a single message"
-    stream = radio.receive()
+    stream = radio.receive(timeout=timeout)
     if stream is not None:
         for package in stream:
             decoded_msg = decoder.decode(package)
@@ -14,15 +14,10 @@ def recv_data(radio, decoder):
                 if decoded_msg != "":
                     return decoded_msg
 
+
 def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5):
-    stream = radio.receive(timeout=timeout)
-    if stream is not None:
-        for package in stream:
-            decoded_msg = decoder.decode(package)
-            if decoded_msg is not None:
-                decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
-                if decoded_msg == ack_string:
-                    return True
+    if recv_data(radio, decoder, timeout) == ack_string:
+        return True
     return False
 
 
@@ -51,7 +46,7 @@ def detect_signal(signal, window_size, threshold):
             consecutive_count = 0  # Reset if the streak is broken
 
         if consecutive_count == 3:
-            return signal[:,i - window_size: i]  # Return last window
+            return signal[:, i - window_size: i]  # Return last window
 
         i = i+window_size
 

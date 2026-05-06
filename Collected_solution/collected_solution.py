@@ -11,10 +11,10 @@ IS_PI1 = (gethostname() == "pi1")
 threshold = 5
 
 if IS_PI1 is True:
-    decoder = SPPDecoder(102, 1e6)
+    decoder = SPPDecoder(102)
     radio = RXTX(tx_apid=101)
 else:
-    decoder = SPPDecoder(101, 1e6)
+    decoder = SPPDecoder(101)
     radio = RXTX(tx_apid=102)
 
 case = None
@@ -26,7 +26,7 @@ while True:
         radio.transmit_pure_sine(40000+random.randint(1000, 15000))
         if recv_data(radio, decoder) == "connection":
             print("Received answer from Pi2, sending ACK")
-            sleep(0.1) #Ensure Pi2 is in recv mode
+            sleep(0.1)  # Ensure Pi2 is in recv mode
             radio.transmit("ACK:PI1")
             case = "transmit_data"
         if case is not None:
@@ -61,11 +61,10 @@ while True:
                     print("Full retry")
 
 
-
 while True:
     match case:
         case "transmit_data":
-            #print("Transmitting data")
+            # print("Transmitting data")
             if IS_PI1 is True:
                 radio.transmit("Some important data")
                 if check_ack(radio, decoder, "ACK:PI2", 0.5):
@@ -76,17 +75,17 @@ while True:
                     case = "wait_carrier"
 
         case "wait_carrier":
-            #print("wait carrier")
+            # print("wait carrier")
             if recv_data(radio, decoder) == "carrier":
                 case = "transmit_carrier"
 
         case "transmit_carrier":
-            #print("Transmitting carrier")
+            # print("Transmitting carrier")
             radio.transmit_pure_sine(200000)
             case = "receive_data"
 
         case "receive_data":
-            #print("receiving data")
+            # print("receiving data")
             msg = recv_data(radio, decoder)
             if msg == "carrier":
                 case = "transmit_carrier"
@@ -94,17 +93,17 @@ while True:
                 if IS_PI1 is True:
                     print("From Pi2 the following has been received (sending ACK):")
                     print(msg)
-                    sleep(0.1) #Ensure Pi2 is in recv mode
+                    sleep(0.1)  # Ensure Pi2 is in recv mode
                     radio.transmit("ACK:PI1")
                 else:
                     print("From Pi1 the following has been received (sending ACK):")
                     print(msg)
-                    sleep(0.1)  #Ensure Pi1 is in recv mode
+                    sleep(0.1)  # Ensure Pi1 is in recv mode
                     radio.transmit("ACK:PI2")
                 case = "AoA"
 
         case "AoA":
-            #print("AoA")
+            # print("AoA")
             radio.transmit("carrier")
             sig = radio.sample_and_rtn(50000)
             sig = detect_signal(sig, 2000, threshold)
