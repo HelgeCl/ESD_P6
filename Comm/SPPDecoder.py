@@ -1,4 +1,5 @@
 import struct
+import numpy as np
 
 class SPPDecoder:
     """Decoder for Space Packet Protocol (SPP) from BPSK signals"""
