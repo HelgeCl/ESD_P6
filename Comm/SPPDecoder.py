@@ -1,6 +1,4 @@
 import struct
-from typing import Optional
-
 
 class SPPDecoder:
     """Decoder for Space Packet Protocol (SPP) from BPSK signals"""
@@ -18,7 +16,7 @@ class SPPDecoder:
         """
         self.apid = apid
 
-    def decode(self, bits: list) -> Optional[dict]:
+    def decode(self, bits: list):
         """
         Decode SPP packet from bit stream
 
@@ -26,7 +24,7 @@ class SPPDecoder:
             bits: List of bits (0s and 1s) from BPSK demodulation
 
         Returns:
-            Dictionary containing decoded packet or None if invalid
+            decoded package
         """
 
         # Check if message is long enough
@@ -36,29 +34,39 @@ class SPPDecoder:
         header_bits = bits[:self.PRIMARY_HEADER_SIZE*8]  # primary header extraction
         header_bytes = self._bits_to_bytes(header_bits)  # Convert header to bytes
 
-        packet_length = self._get_packet_length(header_bytes)
+        packet_length = self._get_packet_length(header_bytes) #read length of packet (as specified by the packet)
         total_bits_needed = (packet_length * 8) + self.PRIMARY_HEADER_SIZE*8
 
         # Extract full packet
         packet_bits = bits[:total_bits_needed]
 
-        packet_bytes = self._bits_to_bytes(packet_bits)
+        packet_bytes = self._bits_to_bytes(packet_bits) #Convert entire package to bytes
 
-        return self._parse_spp_header(packet_bytes, packet_length)
+        return self._parse_spp_header(packet_bytes, packet_length) #Convert bytes into python object
 
     def _bits_to_bytes(self, bits: list) -> bytes:
         """Convert bit list to bytes"""
-        byte_list = []
-        for i in range(0, len(bits), 8):
-            byte_bits = bits[i:i+8]
-            if len(byte_bits) == 8:
-                byte_val = int(''.join(map(str, byte_bits)), 2)
-                byte_list.append(byte_val)
-        return bytes(byte_list)
+        bits = np.array(bits)
+        # Make matrix with one byte pr. row
+        byte_matrix = bits.reshape(-1, 8)
+        # Reshape til et 8xN matrix
+
+        # Vector of powers 2 [128, 64... 2,1] for vector multiplication
+        powers = 2 ** np.arange(7, -1, -1)  # arange start, stop (excl.), step
+
+        # matrix (byte), vector (powers) multiplication. Sum each row
+        # axis=1, to sum accros rows and not coloums
+        byte_value = np.sum(byte_matrix * powers, axis=1)
+
+        # Convert to ascii
+        byte_list = bytes(byte_value.astype(np.uint8))  # Cast into bytes type
+        return byte_list
 
     def _get_packet_length(self, header: bytes) -> int:
         """Extract packet length from primary header"""
-        length = struct.unpack('>H', header[4:6])[0]
+        length = struct.unpack('>H', header[4:6])[0] #Read the two bytes containing length
+        #> "big endian" i.e. MSB first, H unsigned 2 byte int
+        #[0] as unpack returns tuple. We need first item
         return length + 1  # Length field is length - 1
 
     def _parse_spp_header(self, packet: bytes, length: int) -> dict:
@@ -66,7 +74,10 @@ class SPPDecoder:
         header = packet[:self.PRIMARY_HEADER_SIZE]
         data = packet[self.PRIMARY_HEADER_SIZE:]
 
+        # >> bitshift, & is bitwise
         version = (header[0] >> 5) & 0x07
+        #extracts the first 3 bits as this is the version
+        #Done by first shifting 5 bits to the right, then saving the last 3 bits (0x07 = Binary 00000111)
         pkt_type = (header[0] >> 4) & 0x01
         sec_header = (header[0] >> 3) & 0x01
         apid = struct.unpack('>H', bytes([header[0] & 0x07, header[1]]))[0]

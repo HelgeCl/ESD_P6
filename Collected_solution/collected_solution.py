@@ -51,7 +51,6 @@ while True:
 
             if check_ack(radio, decoder, "ACK:PI1"):
                 print("received ACK")
-                sleep(0.1)
                 break
             else:
                 print("Did not receive ACK, checking if Pi1 is in transmit mode")
@@ -90,7 +89,10 @@ while True:
             msg = recv_data(radio, decoder)
             if msg == "carrier":
                 case = "transmit_carrier"
-            elif msg:
+            elif msg: 
+                print(msg)
+                if "ACK" in msg:
+                    continue #In this state we should not receive acks
                 if IS_PI1 is True:
                     print("From Pi2 the following has been received (sending ACK):")
                     print(msg)
@@ -105,6 +107,7 @@ while True:
 
         case "AoA":
             # print("AoA")
+            sleep(0.3) #It seems we might more too fast, and make AoA on incomming data
             radio.transmit("carrier")
             sig = radio.sample_and_rtn(50000)
             sig = detect_signal(sig, 2000, threshold)

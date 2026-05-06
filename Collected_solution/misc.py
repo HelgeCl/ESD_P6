@@ -16,6 +16,7 @@ def recv_data(radio: RXTX, decoder: SPPDecoder, timeout: float = 5):
 
 
 def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5):
+    """Checks for a specific acknowlegement string"""
     if recv_data(radio, decoder, timeout) == ack_string:
         return True
     return False
@@ -33,12 +34,13 @@ def detect_signal(signal, window_size, threshold):
     i = 0
     while i < num_samples:
         window = signal[0][i: i + window_size]
-        fft_result = np.fft.fft(window, n=8192)
+        fft_result = np.fft.fft(window, n=8192) #NB fft is technically larger than 
+        #input data. Is zero padded
 
         magnitude = np.abs(fft_result)
         max_val = np.max(magnitude)
         mean_val = np.mean(magnitude)
-        diff = max_val - mean_val
+        diff = max_val - mean_val #If large difference, then its a signal and not noise
 
         if diff > threshold:
             consecutive_count += 1
