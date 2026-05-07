@@ -124,5 +124,5 @@ while True:
             if sig is not None:
                 angle = delay_and_sum(sig, 0.5, 1000)
                 print("Angle to move is ", angle)
-                serial_write(stepper, makeCommandData(deg2step(angle/4)))
+                serial_write(stepper, makeCommandData(deg2step(angle)))
                 case = "transmit_data"
