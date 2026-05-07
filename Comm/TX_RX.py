@@ -107,7 +107,7 @@ class RXTX:
         peak_corr = np.max(mag_corr)
 
         # len(barker) is the theortical maximum correlation (due to normalization)
-        if peak_corr > 2 * noise_floor and peak_corr > (len(barker) * 0.75):
+        if peak_corr > 2 * noise_floor and peak_corr > (len(barker) * 0.55):
             indices = np.where(mag_corr > 0.9 * peak_corr)[0]
         else:
             indices = []
