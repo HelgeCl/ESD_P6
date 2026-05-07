@@ -5,8 +5,12 @@ from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack, recv_da
 from Git.ESD_P6.AoA.DoA import delay_and_sum
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 from time import sleep
+from Git.ESD_P6.ControllerCommunication.ControllerCom import deg2step, makeCommandData
+from Git.ESD_P6.ControllerCommunication.SerialRW import serial_write
+from serial import Serial
 
 IS_PI1 = (gethostname() == "pi1")
+stepper = Serial("/dev/ttyUSB0", baudrate=115200)
 
 threshold = 5
 
@@ -18,6 +22,7 @@ else:
     radio = RXTX(tx_apid=102)
 
 case = None
+
 
 while True:
     # Trying to detect the other
@@ -89,6 +94,7 @@ while True:
             if msg == "carrier":
                 case = "transmit_carrier"
             elif msg: 
+                print(msg)
                 if "ACK" in msg:
                     continue #In this state we should not receive acks
                 if IS_PI1 is True:
@@ -105,11 +111,17 @@ while True:
 
         case "AoA":
             # print("AoA")
-            sleep(0.3) #It seems we might more too fast, and make AoA on incomming data
             radio.transmit("carrier")
             sig = radio.sample_and_rtn(50000)
-            sig = detect_signal(sig, 2000, threshold)
+            if radio.correct_and_find_starts(sig) is not None:
+                #Our ack never arrived
+                if IS_PI1 is True:
+                    radio.transmit("ACK:PI1")
+                else:
+                    radio.transmit("ACK:PI2")
+            sig = detect_signal(sig, 10000, threshold)
             if sig is not None:
                 angle = delay_and_sum(sig, 0.5, 1000)
                 print("Angle to move is ", angle)
+                serial_write(stepper, makeCommandData(deg2step(angle/4)))
                 case = "transmit_data"

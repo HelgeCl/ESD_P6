@@ -90,6 +90,34 @@ class RXTX:
         self.new_buffer = np.zeros(size, dtype=np.complex64)
         self.new_buffer_2D = np.zeros((2, size), dtype=np.complex64)
 
+    def correct_and_find_starts(self, buffer, barker):
+        sig = self.__center_normalize(buffer)
+        if isinstance(sig, bool):
+            return None
+
+        sig_cfo_corrected = self.__frequency_correction(sig)
+        if isinstance(sig_cfo_corrected, bool):
+            return None
+
+        # Correlate the signal with the barker code
+        corr = np.correlate(sig_cfo_corrected, barker)
+        mag_corr = np.abs(corr)  # Magnitude of the complex numbers for comparason
+
+        noise_floor = np.median(mag_corr)
+        peak_corr = np.max(mag_corr)
+
+        # len(barker) is the theortical maximum correlation (due to normalization)
+        if peak_corr > 2 * noise_floor and peak_corr > (len(barker) * 0.75):
+            indices = np.where(mag_corr > 0.9 * peak_corr)[0]
+        else:
+            indices = []
+
+        # Indices is all index's which correlates well with the barker series
+        if len(indices) == 0:
+            return None
+
+        return indices, sig_cfo_corrected, mag_corr, corr
+
     def receive(self, length: int = 256, timeout: float = 5.0):
         """
         Receive a message, listening for up to `timeout` seconds.
@@ -123,31 +151,10 @@ class RXTX:
             buffer = np.concatenate((wrap_over, new_buffer_ds)) #Insert wrap over
             wrap_over = buffer[-required_len:]  # Use the last part of the buffer for wrapover
 
-            sig = self.__center_normalize(buffer)
-            if isinstance(sig, bool):
+            corrected_data = self.correct_and_find_starts(buffer, barker)
+            if corrected_data is None:
                 continue #loop skip (unusable data)
-
-            sig_cfo_corrected = self.__frequency_correction(sig)
-            if isinstance(sig_cfo_corrected, bool):
-                continue #loop skip (unusable data)
-
-            # Correlate the signal with the barker code
-            corr = np.correlate(sig_cfo_corrected, barker)
-            mag_corr = np.abs(corr)  # Magnitude of the complex numbers for comparason
-
-            noise_floor = np.median(mag_corr)
-            peak_corr = np.max(mag_corr)
-
-            # len(barker) is the theortical maximum correlation (due to normalization)
-            if peak_corr > 2 * noise_floor and peak_corr > (len(barker) * 0.75):
-                indices = np.where(mag_corr > 0.9 * peak_corr)[0]
-            else:
-                indices = []
-
-            # Indices is all index's which correlates well with the barker series
-            if len(indices) == 0:
-                continue #If no indices skip this loop
-            
+            indices, sig_cfo_corrected, mag_corr, corr = corrected_data
             #When at this point, we know that data has been found and we should return
             #Therefore we stop receiving samples
             self.sdr.stop_receive_cont()
