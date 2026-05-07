@@ -8,6 +8,7 @@ from time import sleep
 from Git.ESD_P6.ControllerCommunication.ControllerCom import deg2step, makeCommandData
 from Git.ESD_P6.ControllerCommunication.SerialRW import serial_write
 from serial import Serial
+import numpy as np
 
 IS_PI1 = (gethostname() == "pi1")
 stepper = Serial("/dev/ttyUSB0", baudrate=115200)
@@ -113,7 +114,7 @@ while True:
             # print("AoA")
             radio.transmit("carrier")
             sig = radio.sample_and_rtn(50000)
-            if radio.correct_and_find_starts(sig) is not None:
+            if radio.correct_and_find_starts(sig[0], np.repeat(radio.barker_base, radio.samples_pr_bit)) is not None:
                 #Our ack never arrived
                 if IS_PI1 is True:
                     radio.transmit("ACK:PI1")
