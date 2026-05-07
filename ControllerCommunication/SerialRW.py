@@ -1,3 +1,7 @@
+from time import time, sleep
+from serial import Serial
+
+
 def __check_serial_open(serial_inst: Serial) -> None:
     """ Checks if serial instance is open, if not tries to open
             args:
@@ -52,6 +56,8 @@ def serial_write(serial_inst: Serial, data: bytes | str) -> None:
     
     if isinstance(data, str):  # If data is string, encode it propperly
         serial_inst.write(data.encode('utf-8'))
+        serial_inst.flush()
         return
     serial_inst.write(data)
+    serial_inst.flush()
 
