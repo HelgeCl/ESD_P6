@@ -38,8 +38,8 @@ while True:
             break
 
     else:
-        sig = radio.sample_and_rtn(20000)
-        sig = detect_signal(sig, 2000, threshold)
+        sig = radio.sample_and_rtn(50000)
+        sig = detect_signal(sig, 10000, threshold)
 
         if sig is not None:
             print("Detected other station, it doesnt know us yet")
@@ -113,14 +113,14 @@ while True:
         case "AoA":
             # print("AoA")
             radio.transmit("carrier")
-            sig = radio.sample_and_rtn(50000)
+            sig = radio.sample_and_rtn(100000)
             if radio.correct_and_find_starts(sig[0], np.repeat(radio.barker_base, radio.samples_pr_bit)) is not None:
                 #Our ack never arrived
                 if IS_PI1 is True:
                     radio.transmit("ACK:PI1")
                 else:
                     radio.transmit("ACK:PI2")
-            sig = detect_signal(sig, 10000, threshold)
+            sig = detect_signal(sig, 20000, threshold)
             if sig is not None:
                 angle = delay_and_sum(sig, 0.5, 1000)
                 print("Angle to move is ", angle)
