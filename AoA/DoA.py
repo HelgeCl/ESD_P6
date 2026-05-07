@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def esprit(r: np.ndarray, N: int, d: float = 0.5, shift: int = 1):
     """
     ESPRIT for AoA estimation.
@@ -52,13 +51,75 @@ def delay_and_sum(X, d, point_accuracy):
     # N is number of antennas (rows), M is number of samples (columns)
     N, M = X.shape
 
-    theta_scan = np.linspace(-1*np.pi, np.pi, point_accuracy)
+    theta_scan = np.linspace(-1/2*np.pi, np.pi/2, point_accuracy)
     results = []
 
     for theta_idx in theta_scan:
         # delay-and-sum beamformer
-        w = np.exp(2j * np.pi * d * np.arange(N) * np.sin(theta_idx))
+        w = np.exp(-2j * np.pi * d * np.arange(N) * np.sin(theta_idx))
+        w = w.reshape(-1, 1)
         X_weighted = w.conj().T @ X  # applying weighters
         results.append(np.var(X_weighted))  # Power in signal, in linear units
 
     return theta_scan[np.argmax(results)] * 180 / np.pi  # Return max value, n.b. in degrees
+
+
+def music(X, d, point_accuracy, num_signals=1, sub_array_size=None):
+    """
+    MUSIC DoA estimator with optional Spatial Smoothing for multipath mitigation.
+    
+    Parameters:
+    - X: Input data matrix (N antennas x M samples)
+    - d: Antenna spacing normalized by wavelength (usually 0.5)
+    - point_accuracy: Number of angular points to scan
+    - num_signals: Expected number of sources + strong coherent reflections
+    - sub_array_size: Size of sub-arrays for spatial smoothing (None to disable)
+    """
+    N, M = X.shape
+    
+    # 1. Compute the Covariance Matrix (with optional Spatial Smoothing)
+    if sub_array_size and sub_array_size < N:
+        L = sub_array_size
+        K = N - L + 1  # Number of sub-arrays
+        R = np.zeros((L, L), dtype=complex)
+        for i in range(K):
+            X_sub = X[i:i+L, :]
+            R += (X_sub @ X_sub.conj().T) / M
+        R /= K
+        effective_N = L
+    else:
+        R = (X @ X.conj().T) / M
+        effective_N = N
+
+    # 2. Eigenvalue Decomposition
+    # eigh is used because R is Hermitian (symmetric complex)
+    eigenvalues, eigenvectors = np.linalg.eigh(R)
+    
+    # 3. Extract the Noise Subspace
+    # eigh returns eigenvalues in ascending order. 
+    # The smallest (effective_N - num_signals) eigenvectors belong to the noise subspace.
+    idx = np.argsort(eigenvalues)
+    eigenvectors_sorted = eigenvectors[:, idx]
+    
+    # Noise subspace matrix (G)
+    G = eigenvectors_sorted[:, :effective_N - num_signals]
+
+    # 4. Scan the angles to find the pseudo-spectrum
+    theta_scan = np.linspace(-1/2*np.pi, np.pi/2, point_accuracy)
+    results = []
+
+    for theta_idx in theta_scan:
+        # Construct steering vector for the current angle
+        w = np.exp(-2j * np.pi * d * np.arange(effective_N) * np.sin(theta_idx))
+        w = w.reshape(-1, 1)
+        
+        # MUSIC Pseudo-spectrum formula: P(theta) = 1 / (w^H * G * G^H * w)
+        # We take the real part because the denominator mathematically resolves to a real number
+        denominator = np.real(w.conj().T @ G @ G.conj().T @ w)[0, 0]
+        
+        # Add a tiny epsilon to prevent division by zero at perfect peaks
+        results.append(1.0 / (denominator + 1e-12))
+
+    # 5. Return the angle of the highest peak in degrees
+    return theta_scan[np.argmax(results)] * 180 / np.pi
+
