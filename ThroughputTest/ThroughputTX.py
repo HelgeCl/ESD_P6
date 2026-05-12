@@ -10,7 +10,7 @@ IS_PI1 = (gethostname() == "pi1")
 
 threshold = 5
 
-duration = 5 # seconds
+duration = 120 # seconds
 
 
 
@@ -22,13 +22,14 @@ else:
     radio = RXTX(tx_apid=102)
 
 case = None
-
+print("Waiting for start command")
 while True:
     if IS_PI1:
             if recv_data(radio, decoder) == "start":
                 print("Starting spam")
                 sleep(0.1)  # Ensure Pi2 is in recv mode
                 start_time = time()
-                while time() - start_time < duration:
+                while (time() - start_time) < duration:
                     radio.transmit("spam")
+                print("Stopping spam")
                 
