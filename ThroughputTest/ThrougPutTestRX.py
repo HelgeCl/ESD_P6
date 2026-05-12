@@ -10,7 +10,7 @@ IS_PI1 = (gethostname() == "pi1")
 
 threshold = 5
 
-duration = 6 # seconds
+duration = 60 # seconds
 data = []
 packet_count = 0
 
@@ -25,13 +25,19 @@ case = None
 
 while True:
     if IS_PI1 != True:
+            print("Sending start")
             radio.transmit("start")
             start_time = time()
-            while time() - start_time < duration:
-                if recv_data(radio, decoder) == "spam":
+            while (time() - start_time) < duration:
+                print(f"Runtime: {time()-start_time}")
+                result = recv_data(radio, decoder)
+                print(result)
+                if  result == "spam":
                     timestamp = time() - start_time
                     packet_count += 1
+                    print(f"Time: {timestamp} packet: {packet_count}")
                     data.append([timestamp, packet_count])
+            print("Stopping test...")
             break
 
 np.savetxt("results.csv", data, delimiter=",", header="time,packet_count", comments="")
