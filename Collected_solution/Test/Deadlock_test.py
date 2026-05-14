@@ -4,7 +4,7 @@ import random
 from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack, recv_data
 from Git.ESD_P6.AoA.DoA import delay_and_sum
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
-from time import sleep
+from time import sleep, time
 from Git.ESD_P6.ControllerCommunication.ControllerCom import deg2step, makeCommandData
 from Git.ESD_P6.ControllerCommunication.SerialRW import serial_write
 from serial import Serial
@@ -101,6 +101,8 @@ while True:
                 if IS_PI1 is True:
                     print("From Pi2 the following has been received (sending ACK):")
                     print(msg)
+                    with open("deadlock_results.txt", "a") as file:
+                        file.write((str(time())+","+msg+"\n"))
                     sleep(0.1)  # Ensure Pi2 is in recv mode
                     radio.transmit("ACK:PI1")
                 else:
