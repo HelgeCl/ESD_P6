@@ -1,0 +1,61 @@
+
+time0 = results_udenfor.time;
+p_count0 = results_udenfor.packet_count;
+lost_p_count0 = lost_results_udenfor.packet_count;
+lost_time0 =  lost_results_udenfor.time;
+
+time1 = results_udenfor2.time;
+p_count1 = results_udenfor2.packet_count;
+lost_p_count1 = lost_results_udenfor2.packet_count;
+lost_time1 =  lost_results_udenfor2.time;
+
+time2 = results_udenfor3.time;
+p_count2 = results_udenfor3.packet_count;
+lost_p_count2 = lost_results_udenfor3.packet_count;
+lost_time2 =  lost_results_udenfor3.time;
+
+
+throughput0 = (max(p_count0) * 93) / (max(time0));
+goodput0 = (max(p_count0) * 32) / (max(time0));
+shitput0 = (max(lost_p_count0) * 93) / (max(lost_time0));
+PER0 = max(lost_p_count0) / max(lost_p_count0) + max(p_count0);
+
+throughput1 = (max(p_count1) * 93) / (max(time1));
+goodput1 = (max(p_count1) * 32) / (max(time1));
+shitput1 = (max(lost_p_count1) * 93) / (max(lost_time1));
+PER1 = max(lost_p_count0) / max(lost_p_count1) + max(p_count1);;
+
+throughput2 = (max(p_count2) * 93) / (max(time2));
+goodput2 = (max(p_count2) * 32) / (max(time2));
+shitput2 = (max(lost_p_count2) * 93) / (max(lost_time2));
+PER2 = throughput2 / shitput2;
+
+fprintf('Throughput 1: ~%.2f Kb/s\n', throughput0/1e3);
+fprintf('Goodput 1: ~%.2f Kb/s\n', goodput0/1e3);
+fprintf('Shitput 1: ~%.2f Kb/s\n', shitput0/1e3);
+fprintf('Packet error rate 1: ~%.2f \n', PER0);
+
+fprintf('Throughput 2: ~%.2f Kb/s\n', throughput1/1e3);
+fprintf('Goodput 2: ~%.2f Kb/s\n', goodput1/1e3);
+fprintf('Shitput 2: ~%.2f Kb/s\n', shitput1/1e3);
+fprintf('Packet error rate 2: ~%.2f \n', PER1);
+
+fprintf('Throughput 3: ~%.2f Kb/s\n', throughput2/1e3);
+fprintf('Goodput 3: ~%.2f Kb/s\n', goodput2/1e3);
+fprintf('Shitput 3: ~%.2f Kb/s\n', shitput2/1e3);
+fprintf('Packet error rate 3: ~%.2f \n', PER2);
+
+figure
+hold on
+plot(time0, p_count0, DisplayName= 'Packets over time 1')
+plot(lost_time0, lost_p_count0, DisplayName= 'lost Packets over  1')
+plot(time1, p_count1, DisplayName= 'Packets over time 2')
+plot(lost_time1, lost_p_count1, DisplayName= 'lost Packets over time 2')
+plot(time2, p_count2, DisplayName= 'Packets over time 3')
+plot(lost_time2, lost_p_count2, DisplayName= 'lost Packets over time 3')
+grid on
+ylabel("Packet count")
+xlabel("Time");
+xlim([min(time1) max(time1)])
+legend show;
+hold off

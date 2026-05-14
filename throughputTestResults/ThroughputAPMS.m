@@ -1,0 +1,92 @@
+clc; clear; close all;
+
+% Configuration
+gains = [70, 50, 45];
+packetSizeTotal = 93;   % bytes
+packetSizePayload = 32; % bytes
+numTrials = 3;
+timeGrid = linspace(0, 60, 1000)'; % Common time axis for plotting averages
+
+% Create figure and subplots
+figure('Name', 'Network Performance Analysis', 'Color', 'w');
+
+% Top Plot: Successful Packets
+ax1 = subplot(2, 1, 1); hold on; grid on;
+ylabel("Packets Received [-]")
+title("Average Received Packets in Anechoic Chamber (60s)")
+
+% Bottom Plot: Lost Packets
+ax2 = subplot(2, 1, 2); hold on; grid on;
+ylabel("Packets Lost [-]")
+xlabel("Time [s]");
+title("Average Lost Packets in Anechoic Chamber (60s)")
+
+for g = gains
+    % Matrices to hold resampled data for averaging
+    resampledSuccess = zeros(length(timeGrid), numTrials);
+    resampledLost    = zeros(length(timeGrid), numTrials);
+    
+    % Metric accumulators
+    sumMaxPacket = 0;
+    sumMaxTime = 0;
+    sumMaxLostPacket = 0;
+    sumMaxLostTime = 0;
+    
+    for i = 0:numTrials-1
+        % Construct filenames
+        dataFile = sprintf('results_apms%dg%d.csv', g, i);
+        lostFile = sprintf('lost_results_apms%dg%d.csv', g, i);
+        
+        % Read tables
+        dataT = readtable(dataFile);
+        lostT = readtable(lostFile);
+        
+        % 1. Accumulate max values for scalar metrics
+        sumMaxPacket = sumMaxPacket + max(dataT.packet_count);
+        sumMaxTime   = sumMaxTime + max(dataT.time);
+        sumMaxLostPacket = sumMaxLostPacket + max(lostT.packet_count);
+        sumMaxLostTime   = sumMaxLostTime + max(lostT.time);
+        
+        % 2. Resample (Interpolate) data for the average lines
+        % Handling successful packets
+        resampledSuccess(:, i+1) = interp1(dataT.time, dataT.packet_count, timeGrid, 'linear', 'extrap');
+        
+        % Handling lost packets
+        resampledLost(:, i+1)    = interp1(lostT.time, lostT.packet_count, timeGrid, 'linear', 'extrap');
+    end
+    
+    % --- Calculate Final Averages & Metrics ---
+    avgMaxPacket = sumMaxPacket / numTrials;
+    avgMaxTime   = sumMaxTime / numTrials;
+    avgMaxLostPacket = sumMaxLostPacket / numTrials;
+    avgMaxLostTime   = sumMaxLostTime / numTrials;
+    
+    throughput = (avgMaxPacket * packetSizeTotal) / avgMaxTime;
+    goodput    = (avgMaxPacket * packetSizePayload) / avgMaxTime;
+    shitput    = (avgMaxLostPacket * packetSizeTotal) / avgMaxLostTime;
+    PER        = avgMaxLostPacket / (avgMaxLostPacket + avgMaxPacket);
+    
+    % --- Print Results to Console ---
+    fprintf('Gain %d Results:\n', g);
+    fprintf('  Throughput: %.2f Kb/s\n', throughput/1e3);
+    fprintf('  Goodput:    %.2f Kb/s\n', goodput/1e3);
+    fprintf('  Shitput:    %.2f Kb/s\n', shitput/1e3);
+    fprintf('  PER:        %.2f%%\n', PER*100);
+    fprintf('---------------------------------------------------\n');
+    
+    % --- Plot Averaged Curves ---
+    % Plot Success in Top Subplot
+    avgSuccessCurve = mean(resampledSuccess, 2);
+    plot(ax1, timeGrid, avgSuccessCurve, 'DisplayName', sprintf('Gain = %d', g), 'LineWidth', 1.5);
+    
+    % Plot Loss in Bottom Subplot
+    avgLostCurve = mean(resampledLost, 2);
+    plot(ax2, timeGrid, avgLostCurve, 'DisplayName', sprintf('Gain = %d', g), 'LineWidth', 1.5);
+end
+
+% Final Formatting
+linkaxes([ax1, ax2], 'x'); % Sync zooming on X-axis
+xlim([0 60]);
+ylim([0 1500]);
+legend(ax1, 'Location', 'northwest');
+legend(ax2, 'Location', 'northwest');
