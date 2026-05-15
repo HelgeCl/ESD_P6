@@ -9,7 +9,7 @@ from Git.ESD_P6.ControllerCommunication.ControllerCom import deg2step, makeComma
 from Git.ESD_P6.ControllerCommunication.SerialRW import serial_write
 from serial import Serial
 import numpy as np
-
+"""
 import threading
 import queue
 
@@ -25,7 +25,7 @@ def logger_worker():
 
 # Start the thread
 t = threading.Thread(target=logger_worker, daemon=True)
-t.start()
+t.start()"""
 
 IS_PI1 = (gethostname() == "pi1")
 stepper = Serial("/dev/ttyUSB0", baudrate=115200)
@@ -41,6 +41,7 @@ else:
 
 case = None
 
+T0 = time()
 
 while True:
     # Trying to detect the other
@@ -117,10 +118,10 @@ while True:
                     continue  # In this state we should not receive acks
                 if IS_PI1 is True:
                     print("From Pi2 the following has been received (sending ACK):")
-                    print(msg)
-                    log_queue.put(f"{time()},{msg}\n")
+                    print(T0-time(), ",", msg)
                     sleep(0.1)  # Ensure Pi2 is in recv mode
                     radio.transmit("ACK:PI1")
+                    # log_queue.put(f"{time()},{msg}\n") This doesnt work, dont know why
                 else:
                     print("From Pi1 the following has been received (sending ACK):")
                     print(msg)
