@@ -120,7 +120,7 @@ while True:
                     radio.transmit("ACK:PI1")
                 else:
                     radio.transmit("ACK:PI2")
-            sig = detect_signal(sig, 10000, threshold)
+            sig = detect_signal(sig, 20000, threshold)
             if sig is not None:
                 angle = delay_and_sum(sig, 0.5, 1000)
                 print("Angle to move is ", angle)
