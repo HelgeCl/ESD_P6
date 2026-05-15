@@ -10,6 +10,23 @@ from Git.ESD_P6.ControllerCommunication.SerialRW import serial_write
 from serial import Serial
 import numpy as np
 
+import threading
+import queue
+
+log_queue = queue.Queue()
+
+def logger_worker():
+    with open("deadlock_results_queue_1.txt", "a") as f:
+        while True:
+            item = log_queue.get()
+            if item is None: break
+            f.write(item)
+            f.flush()
+
+# Start the thread
+t = threading.Thread(target=logger_worker, daemon=True)
+t.start()
+
 IS_PI1 = (gethostname() == "pi1")
 stepper = Serial("/dev/ttyUSB0", baudrate=115200)
 
@@ -101,8 +118,7 @@ while True:
                 if IS_PI1 is True:
                     print("From Pi2 the following has been received (sending ACK):")
                     print(msg)
-                    with open("deadlock_results.txt", "a") as file:
-                        file.write((str(time())+","+msg+"\n"))
+                    log_queue.put(f"{time()},{msg}\n")
                     sleep(0.1)  # Ensure Pi2 is in recv mode
                     radio.transmit("ACK:PI1")
                 else:
