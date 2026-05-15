@@ -1,0 +1,11 @@
+1778786241.638577,Some SUPER-important data
+1778786242.981917,Some SUPER-important daa�
+1778786244.3735225,Some SUPER-important data
+1778786245.673395,Some SUPER-important data
+1778786246.9497778,Some SUPER-important data
+1778786248.2905416,Some SUPER-important data
+1778786249.5603745,Some SUPER-important data
+1778786250.8413577,Some SUPER-important data
+1778786252.142184,Some SUPER-important data
+1778786253.4475303,Some SUPER-important data
+1778786254.7366455,Some SUPER-important data

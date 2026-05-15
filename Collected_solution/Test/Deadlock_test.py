@@ -118,7 +118,7 @@ while True:
                     continue  # In this state we should not receive acks
                 if IS_PI1 is True:
                     print("From Pi2 the following has been received (sending ACK):")
-                    print(T0-time(), ",", msg)
+                    print(time()-T0, ",", msg)
                     sleep(0.1)  # Ensure Pi2 is in recv mode
                     radio.transmit("ACK:PI1")
                     # log_queue.put(f"{time()},{msg}\n") This doesnt work, dont know why
