@@ -10,7 +10,7 @@ IS_PI1 = (gethostname() == "pi1")
 
 threshold = 5
 
-duration = 60 # seconds
+duration = 30 # seconds
 
 
 
@@ -31,7 +31,7 @@ test_sync_msg = "start"
 max_gain = 85
 current_gain = 0
 data = []
-lost_data = []
+results = []
 
 
 def GainSelect():
@@ -39,6 +39,8 @@ def GainSelect():
         current_gain += 5
         radio = RXTX(tx_apid=101,gain_tx=current_gain)
         radio.transmit("New Gain")
+        sleep(0.1)
+        radio.transmit(str(current_gain))
     else:
         quit()
 
@@ -47,45 +49,43 @@ while True:
     if IS_PI1: #TX
             GainSelect()
             timeout = time()
-            if time() - timeout < 5:
+            if (time() - timeout) < 10:
                 if recv_data(radio, decoder) == "start":
                     while True:
                         print("Starting spam")
                         sleep(0.1)  # Ensure Pi2 is in recv mode
                         start_time = time()
-                        while (time() - start_time) < duration:
+                        while (time() - start_time) < duration + 10: # Plus 10 for at undgå de 6 sekunder uden data
                             timestamp = time() - start_time
                             packet_count += 5
                             print(f"Time: {timestamp} packet: {packet_count}")
                             radio.transmit(msg)
                         print("Stopping spam")
                         packet_count = 0
-                else:
-                    print(f"Now start received at {current_gain} dB, increasing gain")
+                        break
+            elif (time() - timeout) >= 10:
+                print(f"No start received at {current_gain} dB, increasing gain")
     else: #RX
-        print("Sending start")
-        if recv_data(radio, decoder) == "New Gain":
-            radio.transmit("start")
-            for i in range(3):
+        while current_gain <= max_gain:
+            if recv_data(radio, decoder) == "New Gain":
+                sleep(0.1)
+                current_gain = int(recv_data(radio, decoder))
+                print(f"Received new gain: {current_gain} dB, starting test")
+                print("Sending start")
+                radio.transmit("start")
                 print("Starting...")
                 start_time = time()
-                while (time() - start_time) < duration:
-                    print(f"Runtime: {time()-start_time}")
+                while (time() - start_time) < duration + 8:
+                    sleep(8) # Fjerner de 6 sek, hvor der ikke kom data
                     result = recv_data(radio, decoder)
                     print(result)
                     if  result == msg:
                         timestamp = time() - start_time
-                        packet_count += 1
                         print(f"Time: {timestamp} packet: {len(data)}")
                         data.append(timestamp)
-                    else:
-                        timestamp = time() - start_time
-                        lost_packet_count += 1
-                        print(f"Time: {timestamp} lost_packet: {len(lost_data)}")
-                        lost_data.append(timestamp)
-                print(f"Stopping test {i}...")
-                np.savetxt(f"results_grp60g{i}.csv", data, delimiter=",", header="time,packet_count", comments="")
-                np.savetxt(f"lost_results_grp60g{i}.csv", lost_data, delimiter=",", header="time,packet_count", comments="")
+                print(f"Stopping current test...")
+                throughput = (len(data) * (6 + 13) * 8) / max(data)
                 packet_count = 0
-                lost_packet_count = 0
+                results.append([current_gain, throughput])
+        np.savetxt(f"results_gain.csv", results, delimiter=",", header="gain,throughput", comments="")
                 
