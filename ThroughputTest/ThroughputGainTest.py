@@ -17,6 +17,7 @@ duration = 30 # seconds
 if IS_PI1 is True:
     decoder = SPPDecoder(102)
     id = 101
+    radio = RXTX(tx_apid=101)
     
 else:
     decoder = SPPDecoder(101)
@@ -29,18 +30,17 @@ timestamp = 0
 msg = "gain"
 test_sync_msg = "start"
 max_gain = 85
-current_gain = 0
+current_gain = 43
 data = []
 results = []
 gains = []
 throughputs = []
 
 def GainSelect():
+    global current_gain
     if current_gain < max_gain:
-        current_gain += 5
+        current_gain += 3
         radio = RXTX(tx_apid=101,gain_tx=current_gain)
-        radio.transmit("New Gain")
-        sleep(0.1)
         radio.transmit(str(current_gain))
     else:
         quit()
@@ -56,7 +56,7 @@ while True:
     if IS_PI1: #TX
             GainSelect()
             timeout = time()
-            if (time() - timeout) < 10:
+            while (time() - timeout) < 10:
                 if recv_data(radio, decoder) == "start":
                     while True:
                         print("Starting spam")
@@ -70,8 +70,8 @@ while True:
                         print("Stopping spam")
                         packet_count = 0
                         break
-            elif (time() - timeout) >= 10:
-                print(f"No start received at {current_gain} dB, increasing gain")
+                elif (time() - timeout) < 9:
+                    print(f"No start received at {current_gain} dB, increasing gain")
     else: #RX
         while current_gain < max_gain:
             packet = to_int(recv_data(radio, decoder))
