@@ -26,13 +26,14 @@ else:
 case = None
 packet_count = 0
 timestamp = 0
-msg = "Testing gain!"
+msg = "gain"
 test_sync_msg = "start"
 max_gain = 85
 current_gain = 0
 data = []
 results = []
-
+gains = []
+throughputs = []
 
 def GainSelect():
     if current_gain < max_gain:
@@ -43,6 +44,12 @@ def GainSelect():
         radio.transmit(str(current_gain))
     else:
         quit()
+
+def to_int(value):
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return None  # or a default, or re-raise
 
 print("Waiting for start command")
 while True:
@@ -66,17 +73,19 @@ while True:
             elif (time() - timeout) >= 10:
                 print(f"No start received at {current_gain} dB, increasing gain")
     else: #RX
-        while current_gain <= max_gain:
-            if recv_data(radio, decoder) == "New Gain":
-                sleep(0.1)
-                current_gain = int(recv_data(radio, decoder))
+        while current_gain < max_gain:
+            packet = to_int(recv_data(radio, decoder))
+            if packet is None:
+                continue
+            else:
+                current_gain = packet
                 print(f"Received new gain: {current_gain} dB, starting test")
                 print("Sending start")
                 radio.transmit("start")
                 print("Starting...")
                 start_time = time()
-                while (time() - start_time) < duration + 8:
-                    sleep(8) # Fjerner de 6 sek, hvor der ikke kom data
+                while (time() - start_time) < duration:
+                    #sleep(8) # Fjerner de 6 sek, hvor der ikke kom data
                     result = recv_data(radio, decoder)
                     print(result)
                     if  result == msg:
@@ -84,8 +93,12 @@ while True:
                         print(f"Time: {timestamp} packet: {len(data)}")
                         data.append(timestamp)
                 print(f"Stopping current test...")
-                throughput = (len(data) * (6 + 13) * 8) / max(data)
                 packet_count = 0
+                throughput = (len(data) * (6 + len(msg)) * 8) / max(data)
                 results.append([current_gain, throughput])
-        np.savetxt(f"results_gain.csv", results, delimiter=",", header="gain,throughput", comments="")
+                data = []
+                #results.append([current_gain,data,])
+        print("Test ended")
+        np.savetxt(f"results_gainShortwordFulRes.csv", results, delimiter=",", header="gain,throughput", comments="")
+        break
                 
