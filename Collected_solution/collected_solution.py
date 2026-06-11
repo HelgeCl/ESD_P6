@@ -25,15 +25,19 @@ else:
 case = None
 
 while True:
-    msg, esprit_data = recv_data(radio, decoder)
-    print(msg)
+    if IS_PI1 is True:
+        msg, esprit_data = recv_data(radio, decoder)
+        print(msg)
 
-    sig, cfo, phase_offset = esprit_data
-    t = np.arange(len(sig))
-    sig_cfo = sig * np.exp(-1j * 2 * np.pi * cfo * t)
-    sig_cfo_phase = sig_cfo * np.exp(-1j * phase_offset)
+        sig, cfo, phase_offset = esprit_data
+        t = np.arange(len(sig))
+        sig_cfo = sig * np.exp(-1j * 2 * np.pi * cfo * t)
+        sig_cfo_phase = sig_cfo * np.exp(-1j * phase_offset)
 
-    print(esprit(sig_cfo_phase, 1))
+        print(esprit(sig_cfo_phase, 1))
+    else:
+        radio.transmit("Hello")
+        sleep(0.3)
 
 
 while True:
