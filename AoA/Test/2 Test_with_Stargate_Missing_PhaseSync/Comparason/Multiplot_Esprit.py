@@ -2,13 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 
 # --- Configuration ---
 # Define the full range used during simulation to find the correct indices
 ALL_SIM_ANGLES = [-90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90]
 # Select the specific subset you want to plot
-ANGLES = [-30, -15, 0, 15, 30]  # -90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90
+ANGLES = [-45, -30, -15, 0, 15, 30, 45]  # -90, -75, -60, -45, -30, -15, 0, 15, 30, 45, 60, 75, 90
 
 MEASURED_FILES = [
     "esprit_all_results_0dBm.npz",
@@ -97,4 +97,5 @@ ax1.set_xlim(min(ANGLES)-5, max(ANGLES)+5)
 ax1.set_xticks(ANGLES)
 
 plt.tight_layout()
-plt.savefig("esprit_comparison_overlay_Zoomed.png", dpi=300, bbox_inches='tight')
+plt.show()
+# plt.savefig("esprit_comparison_overlay_Zoomed.png", dpi=300, bbox_inches='tight')
