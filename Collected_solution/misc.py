@@ -5,14 +5,15 @@ from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 
 def recv_data(radio: RXTX, decoder: SPPDecoder, timeout: float = 5):
     "Only returns a single message"
-    stream, signal = radio.receive(timeout=timeout)
-    if stream is not None:
+    data = radio.receive(timeout=timeout)
+    if data is not None:
+        stream, esprit_data = data
         for package in stream:
             decoded_msg = decoder.decode(package)
             if decoded_msg is not None:
                 decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
                 if decoded_msg != "":
-                    return decoded_msg, signal
+                    return decoded_msg, esprit_data
 
 
 def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5):
@@ -34,13 +35,13 @@ def detect_signal(signal, window_size, threshold):
     i = 0
     while i < num_samples:
         window = signal[0][i: i + window_size]
-        fft_result = np.fft.fft(window, n=8192) #NB fft is technically larger than 
-        #input data. Is zero padded
+        fft_result = np.fft.fft(window, n=8192)  # NB fft is technically larger than
+        # input data. Is zero padded
 
         magnitude = np.abs(fft_result)
         max_val = np.max(magnitude)
         mean_val = np.mean(magnitude)
-        diff = max_val - mean_val #If large difference, then its a signal and not noise
+        diff = max_val - mean_val  # If large difference, then its a signal and not noise
 
         if diff > threshold:
             consecutive_count += 1

@@ -25,8 +25,15 @@ else:
 case = None
 
 while True:
-    msg, sig = recv_data(radio, decoder)
+    msg, esprit_data = recv_data(radio, decoder)
     print(msg)
+
+    sig, cfo, phase_offset = esprit_data
+    t = np.arange(len(sig))
+    sig_cfo = sig * np.exp(-1j * 2 * np.pi * cfo * t)
+    sig_cfo_phase = sig_cfo * np.exp(-1j * phase_offset)
+
+    print(esprit(sig_cfo_phase, 1))
 
 
 while True:

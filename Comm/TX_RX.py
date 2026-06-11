@@ -63,7 +63,7 @@ class RXTX:
         # Correct signal
         t = np.arange(len(sig)) / self.sample_rate_ds
         sig_cfo_corrected = sig * np.exp(-1j * 2 * np.pi * cfo_est * t)  # e^(-j2pi f t)
-        return sig_cfo_corrected
+        return sig_cfo_corrected, cfo_est
 
     def __bit_extraction(self, sig, phase_offset, start_idx, bits_to_extract):
         """Extects bits from signal
@@ -83,7 +83,7 @@ class RXTX:
 
         # Convert to '1's and '0's
         bit_array = (sample_values > 0).astype(np.uint8)  # If true 1, false = 0
-        return bit_array, corrected_sig[indices[0]:indices[-1]]
+        return bit_array
 
     def recv_buffer(self, size: int):
         """Change recv buffer size"""
@@ -95,7 +95,7 @@ class RXTX:
         if isinstance(sig, bool):
             return None
 
-        sig_cfo_corrected = self.__frequency_correction(sig)
+        sig_cfo_corrected, cfo_est = self.__frequency_correction(sig)
         if isinstance(sig_cfo_corrected, bool):
             return None
 
@@ -116,7 +116,7 @@ class RXTX:
         if len(indices) == 0:
             return None
 
-        return indices, sig_cfo_corrected, mag_corr, corr
+        return indices, sig_cfo_corrected, mag_corr, corr, cfo_est
 
     def receive(self, length: int = 256, timeout: float = 5.0):
         """
@@ -133,32 +133,30 @@ class RXTX:
         # Package length
         required_len = len(barker) + (length * self.samples_pr_bit_ds)
 
-        wrap_over = [] # initialize for later use
-        deadline = time.monotonic() + timeout #Implement a deadline time
-        #NB monotonic clock is used instead of time.time() as this doesnt depend on system time
-        #Which means it only goes forward, however if using time() and a system clock update happend
-        #e..g 5 minutes backwards, the deadline would last an additional 5 minuts
+        wrap_over = []  # initialize for later use
+        deadline = time.monotonic() + timeout  # Implement a deadline time
+        # NB monotonic clock is used instead of time.time() as this doesnt depend on system time
+        # Which means it only goes forward, however if using time() and a system clock update happend
+        # e..g 5 minutes backwards, the deadline would last an additional 5 minuts
         self.sdr.start_receive_cont()
-
-
 
         while time.monotonic() < deadline:
             self.sdr.receive_cont_samples(self.new_buffer_2D)
-            self.new_buffer = self.new_buffer_2D[0] #SDR forces us to pull a 2D buffer
-            #However we only need a 1D buffer
-            new_buffer_ds = self.new_buffer[::self.ds]# Downsample the received buffer
+            self.new_buffer = self.new_buffer_2D[0]  # SDR forces us to pull a 2D buffer
+            # However we only need a 1D buffer
+            new_buffer_ds = self.new_buffer[::self.ds]  # Downsample the received buffer
 
-            buffer = np.concatenate((wrap_over, new_buffer_ds)) #Insert wrap over
+            buffer = np.concatenate((wrap_over, new_buffer_ds))  # Insert wrap over
             wrap_over = buffer[-required_len:]  # Use the last part of the buffer for wrapover
 
             corrected_data = self.correct_and_find_starts(buffer, barker)
             if corrected_data is None:
-                continue #loop skip (unusable data)
-            indices, sig_cfo_corrected, mag_corr, corr = corrected_data
-            #When at this point, we know that data has been found and we should return
-            #Therefore we stop receiving samples
+                continue  # loop skip (unusable data)
+            indices, sig_cfo_corrected, mag_corr, corr, cfo_est = corrected_data
+            # When at this point, we know that data has been found and we should return
+            # Therefore we stop receiving samples
             self.sdr.stop_receive_cont()
-            self.new_buffer.fill(0) #Dont really know why, but if we do not reset buffer
+            self.new_buffer.fill(0)  # Dont really know why, but if we do not reset buffer
             # Issues arrise
             rtn = []
 
@@ -209,11 +207,11 @@ class RXTX:
                     start_bit_idx = peak + len(barker) + (self.samples_pr_bit_ds // 2)
                     # NB this index is places in the center of the samples. This ensures we are measuring in the stable region and not the transision
 
-                    bits, signal = self.__bit_extraction(sig_cfo_corrected, phase_offset,
-                                                    start_bit_idx, length)
-                    rtn.append(bits)  
-                    return(rtn, signal)              
-            if rtn != []: #Sanity check
+                    bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
+                                                 start_bit_idx, length)
+                    rtn.append(bits)
+                    return (rtn, (self.new_buffer_2D, cfo_est, phase_offset))
+            if rtn != []:  # Sanity check
                 return rtn
 
         # Timed out without finding a packet
@@ -243,10 +241,10 @@ class RXTX:
 
         payload = np.concatenate((self.barker_base, data_symbols)).astype(np.float32)
         data_samples = np.repeat(payload, self.samples_pr_bit).astype(np.complex64)
-        
-        #Building the repeated samples to be transmitted
+
+        # Building the repeated samples to be transmitted
         gap = np.zeros(self.samples_pr_bit*200, dtype=np.float32)
-        #Gab required to space apart our repeats. Else we run the risk of a multipath causing interference
+        # Gab required to space apart our repeats. Else we run the risk of a multipath causing interference
         burst = np.concatenate((gap, data_samples, carrier))
         repeated = np.concatenate([burst for _ in range(repeat)]).astype(np.complex64)
 
