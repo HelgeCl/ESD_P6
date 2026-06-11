@@ -83,7 +83,7 @@ class RXTX:
 
         # Convert to '1's and '0's
         bit_array = (sample_values > 0).astype(np.uint8)  # If true 1, false = 0
-        return bit_array
+        return bit_array, corrected_sig[indices[0]:indices[-1]]
 
     def recv_buffer(self, size: int):
         """Change recv buffer size"""
@@ -209,10 +209,10 @@ class RXTX:
                     start_bit_idx = peak + len(barker) + (self.samples_pr_bit_ds // 2)
                     # NB this index is places in the center of the samples. This ensures we are measuring in the stable region and not the transision
 
-                    bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
+                    bits, signal = self.__bit_extraction(sig_cfo_corrected, phase_offset,
                                                     start_bit_idx, length)
                     rtn.append(bits)  
-                    return(rtn)              
+                    return(rtn, signal)              
             if rtn != []: #Sanity check
                 return rtn
 

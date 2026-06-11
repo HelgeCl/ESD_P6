@@ -5,14 +5,14 @@ from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 
 def recv_data(radio: RXTX, decoder: SPPDecoder, timeout: float = 5):
     "Only returns a single message"
-    stream = radio.receive(timeout=timeout)
+    stream, signal = radio.receive(timeout=timeout)
     if stream is not None:
         for package in stream:
             decoded_msg = decoder.decode(package)
             if decoded_msg is not None:
                 decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
                 if decoded_msg != "":
-                    return decoded_msg
+                    return decoded_msg, signal
 
 
 def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5):

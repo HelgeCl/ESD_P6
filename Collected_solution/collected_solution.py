@@ -2,7 +2,7 @@ from socket import gethostname
 from Git.ESD_P6.Comm.TX_RX import RXTX
 import random
 from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack, recv_data
-from Git.ESD_P6.AoA.DoA import delay_and_sum
+from Git.ESD_P6.AoA.DoA import delay_and_sum, esprit
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 from time import sleep
 from Git.ESD_P6.ControllerCommunication.ControllerCom import deg2step, makeCommandData
@@ -23,6 +23,10 @@ else:
     radio = RXTX(tx_apid=102)
 
 case = None
+
+while True:
+    msg, sig = recv_data(radio, decoder)
+    print(msg)
 
 
 while True:
