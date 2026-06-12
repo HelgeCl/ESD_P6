@@ -1,7 +1,7 @@
 from socket import gethostname
 from Git.ESD_P6.Comm.TX_RX import RXTX
 import random
-from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack, recv_data
+from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack, recv_data, esprit_correction
 from Git.ESD_P6.AoA.DoA import delay_and_sum, esprit
 from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 from time import sleep
@@ -17,28 +17,26 @@ threshold = 5
 
 if IS_PI1 is True:
     decoder = SPPDecoder(102)
-    radio = RXTX(tx_apid=101)
+    radio = RXTX(tx_apid=101, sample_rate=500e3, samples_pr_bit=16, down_sample_factor=2)
 else:
     decoder = SPPDecoder(101)
-    radio = RXTX(tx_apid=102)
+    radio = RXTX(tx_apid=102, sample_rate=500e3, samples_pr_bit=16, down_sample_factor=2)
 
 case = None
-
 while True:
     if IS_PI1 is True:
-        msg, esprit_data = recv_data(radio, decoder)
-        print(msg)
+        data = recv_data(radio, decoder)
+        if data is None:
+            print("ISNONE")
+            continue
+        msg, esprit_data = data
 
-        sig, cfo, phase_offset = esprit_data
-        t = np.arange(len(sig))
-        sig_cfo = sig * np.exp(-1j * 2 * np.pi * cfo * t)
-        sig_cfo_phase = sig_cfo * np.exp(-1j * phase_offset)
-
-        print(esprit(sig_cfo_phase, 1))
+        print("msg: ", msg)
+        
+        print(esprit(esprit_correction(esprit_data), 1))
     else:
         radio.transmit("Hello")
         sleep(0.3)
-
 
 while True:
     # Trying to detect the other

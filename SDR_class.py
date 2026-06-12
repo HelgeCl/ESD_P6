@@ -31,7 +31,6 @@ class SDR:
         self.usrp.set_clock_source("internal")
         self.usrp.set_time_source("internal")
         self.usrp.set_time_now(uhd.types.TimeSpec(0.0))
-        self.usrp.set_time_unknown_pps(uhd.types.TimeSpec(0.0))
         time.sleep(10)  # Time to lock, and "warmup" time 
         print("SDR setup done")
 
@@ -76,7 +75,7 @@ class SDR:
         return buffer
 
     def start_receive_cont(self):
-        self.rx_cont_stream_cmd.time_spec = self.usrp.get_time_now() + uhd.types.TimeSpec(0.05)
+        self.rx_cont_stream_cmd.time_spec = self.usrp.get_time_now() + uhd.types.TimeSpec(0.005)
         self.rx_streamer.issue_stream_cmd(self.rx_cont_stream_cmd)
 
     def stop_receive_cont(self):
@@ -88,7 +87,15 @@ class SDR:
                 self.cont_buffer = np.zeros(10000, dtype=np.complex64)
 
         """
-        self.rx_streamer.recv(buffer, self.rx_metadata)
+        num_samps = self.rx_streamer.recv(buffer, self.rx_metadata, timeout=1)
+        error = self.rx_metadata.error_code
+        if error != uhd.types.RXMetadataErrorCode.none:
+            print(f"RX error: {self.rx_metadata.error_code}")
+        if error == uhd.types.RXMetadataErrorCode.timeout:
+            print(f"Timeout — has_time_spec: {self.rx_metadata.has_time_spec}, "
+            f"out_of_sequence: {self.rx_metadata.out_of_sequence}, "
+            f"end_of_burst: {self.rx_metadata.end_of_burst}")
+        return num_samps
 
     def setup_transmit(self):
         st_args = uhd.usrp.StreamArgs("fc32", "sc16")

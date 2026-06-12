@@ -141,8 +141,13 @@ class RXTX:
         self.sdr.start_receive_cont()
 
         while time.monotonic() < deadline:
-            self.sdr.receive_cont_samples(self.new_buffer_2D)
-            self.new_buffer = self.new_buffer_2D[0]  # SDR forces us to pull a 2D buffer
+            #self.new_buffer.fill(0)  # Dont really know why, but if we do not reset buffer
+            # Issues arrise
+            num_samps = self.sdr.receive_cont_samples(self.new_buffer_2D)
+            if num_samps == 0:
+                continue
+            buf_to_pass = self.new_buffer_2D[:, :num_samps].copy()
+            self.new_buffer = self.new_buffer_2D[0, :num_samps]  # SDR forces us to pull a 2D buffer
             # However we only need a 1D buffer
             new_buffer_ds = self.new_buffer[::self.ds]  # Downsample the received buffer
 
@@ -153,11 +158,8 @@ class RXTX:
             if corrected_data is None:
                 continue  # loop skip (unusable data)
             indices, sig_cfo_corrected, mag_corr, corr, cfo_est = corrected_data
-            # When at this point, we know that data has been found and we should return
-            # Therefore we stop receiving samples
-            self.sdr.stop_receive_cont()
-            self.new_buffer.fill(0)  # Dont really know why, but if we do not reset buffer
-            # Issues arrise
+            
+            
             rtn = []
 
             # Detect only ONE start for every packet
@@ -210,7 +212,10 @@ class RXTX:
                     bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
                                                  start_bit_idx, length)
                     rtn.append(bits)
-                    return (rtn, (self.new_buffer_2D, cfo_est, phase_offset))
+                    # When at this point, we know that data has been found and we should return
+                    # Therefore we stop receiving samples
+                    self.sdr.stop_receive_cont()
+                    return (rtn, (buf_to_pass, cfo_est, phase_offset))
             if rtn != []:  # Sanity check
                 return rtn
 
