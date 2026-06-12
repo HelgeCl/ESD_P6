@@ -54,3 +54,13 @@ def detect_signal(signal, window_size, threshold):
         i = i+window_size
 
     return None  # Return None if no trigger occurs
+
+
+def esprit_correction(esprit_data):
+    #sig_cfo = sig * np.exp(-1j * 2 * np.pi * cfo * t)
+    #sig_cfo_phase = sig_cfo * np.exp(-1j * phase_offset)
+    sig, cfo, phase_offset = esprit_data
+    sig = sig[:, 200:]#dont know why but first 200 samples are 0
+    num_samples = sig.shape[1] 
+    t = np.arange(num_samples)
+    return sig * np.exp(-1j * (2 * np.pi * cfo * t + phase_offset))
