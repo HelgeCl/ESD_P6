@@ -42,7 +42,6 @@ class SPPDecoder:
         packet_bits = bits[:total_bits_needed]
 
         packet_bytes = self._bits_to_bytes(packet_bits) #Convert entire package to bytes
-
         return self._parse_spp_header(packet_bytes, packet_length) #Convert bytes into python object
 
     def _bits_to_bytes(self, bits: list) -> bytes:
@@ -85,15 +84,21 @@ class SPPDecoder:
         seq_flags = (header[2] >> 6) & 0x03
         seq_count = struct.unpack('>H', bytes([header[2] & 0x3F, header[3]]))[0]
         # Validate input
+        #print("Debug, version:", version, " apid: ", apid, " pkt_type: ", pkt_type, " seq_flags: ", seq_flags," length: ", length)
         if version != 0:
+            #print("Version issue is ", version)
             return None
         if apid != self.apid:          # only APID our encoder uses
+            #print("apid issue is ", apid, " should be ", self.apid)
             return None
         if pkt_type != 0:        # always telecommand
+            #print("pkt_type issue, is ", pkt_type)
             return None
         if seq_flags != 3:       # always sole packet
+            #print("seq_flag issue, is ", seq_flags)
             return None
         if length > 256:         # sanity check on data length
+            #print("data length issue, is ", length)
             return None
 
         return {
