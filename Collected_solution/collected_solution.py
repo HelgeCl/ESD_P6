@@ -26,7 +26,7 @@ case = None
 
 def run_esprit_and_move(esprit_data):
     corrected_data = esprit_correction(esprit_data)
-    angle = esprit(corrected_data, 1)
+    angle = -esprit(corrected_data, 1)
     serial_write(stepper, makeCommandData(deg2step(angle)))
     return angle
 
@@ -82,36 +82,46 @@ while True:
 while True:
     match case:
         case "transmit_data":
-            # print("Transmitting data")
+            #print("Transmitting data")
             if IS_PI1 is True:
                 radio.transmit("Some important data")
-                if check_ack(radio, decoder, "ACK:PI2", 0.5):
-                    case = "wait_carrier"
+                sleep(0.1)
+                if check_ack(radio, decoder, "ACK:PI2", 1):
+                    case = "receive_data"
             else:
                 radio.transmit("Some SUPER-important data")
-                if check_ack(radio, decoder, "ACK:PI1", 0.5):
-                    case = "wait_carrier"
+                sleep(0.1)
+                ack, msg = check_ack(radio, decoder, "ACK:PI1", 1, output_string=True)
+                if ack:
+                    case = "receive_data"
+                    continue
+                if msg is not None: #If we receive a message, previous ack didnt go through.
+                    print("Ack didnt go through")
+                    radio.transmit("ACK:PI2")
 
         case "receive_data":
-            # print("receiving data")
+            #print("receiving data")
             data = recv_data(radio, decoder)
             if data is None:
                 continue
             msg, esprit_data = data
             if msg:
-                print(msg)
                 if "ACK" in msg:
                     continue  # In this state we should not receive acks
                 if IS_PI1 is True:
                     print("From Pi2 the following has been received (sending ACK):")
                     print(msg)
-                    sleep(0.1)  # Ensure Pi2 is in recv mode
+                    data = recv_data(radio, decoder, timeout = 0.5)
+                    while data is not None:# Ensure Pi2 is in recv mode
+                        data = recv_data(radio, decoder, timeout = 0.5)
                     radio.transmit("ACK:PI1")
                 else:
                     print("From Pi1 the following has been received (sending ACK):")
                     print(msg)
-                    sleep(0.1)  # Ensure Pi1 is in recv mode
+                    data = recv_data(radio, decoder, timeout = 0.5)
+                    while data is not None:# Ensure Pi1 is in recv mode
+                        data = recv_data(radio, decoder, timeout = 0.5)
                     radio.transmit("ACK:PI2")
                 angle = run_esprit_and_move(esprit_data)
                 print("Angle is: ", angle)
-                case = "AoA"
+                case = "transmit_data"
