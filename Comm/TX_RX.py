@@ -133,7 +133,8 @@ class RXTX:
         # Package length
         required_len = len(barker) + (length * self.samples_pr_bit_ds)
 
-        wrap_over = []  # initialize for later use
+        # initialize for later use
+        wrap_over = np.empty((self.new_buffer_2D.shape[0], 0), dtype=self.new_buffer_2D.dtype)
         deadline = time.monotonic() + timeout  # Implement a deadline time
         # NB monotonic clock is used instead of time.time() as this doesnt depend on system time
         # Which means it only goes forward, however if using time() and a system clock update happend
@@ -141,25 +142,26 @@ class RXTX:
         self.sdr.start_receive_cont()
 
         while time.monotonic() < deadline:
-            #self.new_buffer.fill(0)  # Dont really know why, but if we do not reset buffer
+            # self.new_buffer.fill(0)  # Dont really know why, but if we do not reset buffer
             # Issues arrise
             num_samps = self.sdr.receive_cont_samples(self.new_buffer_2D)
             if num_samps == 0:
                 continue
-            buf_to_pass = self.new_buffer_2D[:, :num_samps].copy()
-            self.new_buffer = self.new_buffer_2D[0, :num_samps]  # SDR forces us to pull a 2D buffer
+
+            full_2D_buffer = np.concatenate(
+                (wrap_over, self.new_buffer_2D[:, :num_samps]), axis=1)  # Insert wrap over
+
+            # Use the last part of the buffer for wrapover
+            wrap_over = full_2D_buffer[:, -required_len*self.ds:]
+            self.new_buffer = full_2D_buffer[0, :]  # SDR forces us to pull a 2D buffer
             # However we only need a 1D buffer
             new_buffer_ds = self.new_buffer[::self.ds]  # Downsample the received buffer
 
-            buffer = np.concatenate((wrap_over, new_buffer_ds))  # Insert wrap over
-            wrap_over = buffer[-required_len:]  # Use the last part of the buffer for wrapover
-
-            corrected_data = self.correct_and_find_starts(buffer, barker)
+            corrected_data = self.correct_and_find_starts(new_buffer_ds, barker)
             if corrected_data is None:
                 continue  # loop skip (unusable data)
             indices, sig_cfo_corrected, mag_corr, corr, cfo_est = corrected_data
-            
-            
+
             rtn = []
 
             # Detect only ONE start for every packet
@@ -215,10 +217,9 @@ class RXTX:
                     # When at this point, we know that data has been found and we should return
                     # Therefore we stop receiving samples
                     self.sdr.stop_receive_cont()
-                    return (rtn, (buf_to_pass, cfo_est, phase_offset))
+                    return (rtn, (full_2D_buffer[:, peak*self.ds:(peak+length)*self.ds], cfo_est, phase_offset))
             if rtn != []:  # Sanity check
                 return rtn
-
         # Timed out without finding a packet
         self.sdr.stop_receive_cont()
         return None
