@@ -18,7 +18,11 @@ def recv_data(radio: RXTX, decoder: SPPDecoder, timeout: float = 5):
 
 def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5):
     """Checks for a specific acknowlegement string"""
-    if recv_data(radio, decoder, timeout) == ack_string:
+    data = recv_data(radio, decoder, timeout)
+    if data is None:
+        return False
+    msg, _ = data
+    if msg == ack_string:
         return True
     return False
 
