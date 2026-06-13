@@ -1,0 +1,127 @@
+from socket import gethostname
+from Git.ESD_P6.Comm.TX_RX import RXTX
+import random
+from Git.ESD_P6.Collected_solution.misc import detect_signal, check_ack, recv_data, esprit_correction
+from Git.ESD_P6.AoA.DoA import delay_and_sum, esprit
+from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
+from time import sleep
+from Git.ESD_P6.ControllerCommunication.ControllerCom import deg2step, makeCommandData
+from Git.ESD_P6.ControllerCommunication.SerialRW import serial_write
+from serial import Serial
+import numpy as np
+
+IS_PI1 = (gethostname() == "pi1")
+stepper = Serial("/dev/ttyUSB0", baudrate=115200)
+
+threshold = 5
+
+if IS_PI1 is True:
+    decoder = SPPDecoder(102)
+    radio = RXTX(tx_apid=101)
+else:
+    decoder = SPPDecoder(101)
+    radio = RXTX(tx_apid=102)
+
+case = None
+
+while True:
+    # Trying to detect the other
+    if IS_PI1:
+        radio.transmit_pure_sine(40000+random.randint(1000, 15000))
+        if recv_data(radio, decoder) == "connection":
+            print("Received answer from Pi2, sending ACK")
+            sleep(0.1)  # Ensure Pi2 is in recv mode
+            radio.transmit("ACK:PI1")
+            case = "transmit_data"
+        if case is not None:
+            break
+
+    else:
+        sig = radio.sample_and_rtn(50000)
+        sig = detect_signal(sig, 10000, threshold)
+
+        if sig is not None:
+            print("Detected other station, it doesnt know us yet")
+            angle = delay_and_sum(sig, 0.5, 1000)
+            print("Angle is: ", angle)
+            print("Waiting for listing period")
+            while sig is not None:
+                sig = radio.sample_and_rtn(10000)
+                sig = detect_signal(sig, 2000, threshold)
+            sleep(0.5)
+            print("Transmitting")
+            radio.transmit("connection")
+            case = "receive_data"
+
+            if check_ack(radio, decoder, "ACK:PI1"):
+                print("received ACK")
+                break
+            else:
+                print("Did not receive ACK, checking if Pi1 is in transmit mode")
+                if recv_data(radio, decoder) is not None:
+                    print("ACK didnt reach us, but msg reached Pi1")
+                    break
+                else:
+                    print("Full retry")
+
+
+while True:
+    match case:
+        case "transmit_data":
+            # print("Transmitting data")
+            if IS_PI1 is True:
+                radio.transmit("Some important data")
+                if check_ack(radio, decoder, "ACK:PI2", 0.5):
+                    case = "wait_carrier"
+            else:
+                radio.transmit("Some SUPER-important data")
+                if check_ack(radio, decoder, "ACK:PI1", 0.5):
+                    case = "wait_carrier"
+
+        case "wait_carrier":
+            # print("wait carrier")
+            if recv_data(radio, decoder) == "carrier":
+                case = "transmit_carrier"
+
+        case "transmit_carrier":
+            # print("Transmitting carrier")
+            radio.transmit_pure_sine(200000)
+            case = "receive_data"
+
+        case "receive_data":
+            # print("receiving data")
+            msg = recv_data(radio, decoder)
+            if msg == "carrier":
+                case = "transmit_carrier"
+            elif msg:
+                print(msg)
+                if "ACK" in msg:
+                    continue  # In this state we should not receive acks
+                if IS_PI1 is True:
+                    print("From Pi2 the following has been received (sending ACK):")
+                    print(msg)
+                    sleep(0.1)  # Ensure Pi2 is in recv mode
+                    radio.transmit("ACK:PI1")
+                else:
+                    print("From Pi1 the following has been received (sending ACK):")
+                    print(msg)
+                    sleep(0.1)  # Ensure Pi1 is in recv mode
+                    radio.transmit("ACK:PI2")
+                case = "AoA"
+
+        case "AoA":
+            # print("AoA")
+            radio.transmit("carrier")
+            sig = radio.sample_and_rtn(100000)
+            if radio.correct_and_find_starts(sig[0], np.repeat(radio.barker_base, radio.samples_pr_bit)) is not None:
+                # Our ack never arrived
+                if IS_PI1 is True:
+                    radio.transmit("ACK:PI1")
+                else:
+                    radio.transmit("ACK:PI2")
+            sig = detect_signal(sig, 20000, threshold)
+            if sig is not None:
+                angle = delay_and_sum(sig, 0.5, 1000)
+                print("Angle to move is ", angle)
+                serial_write(stepper, makeCommandData(deg2step(angle)))
+                case = "transmit_data"

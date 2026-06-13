@@ -22,25 +22,26 @@ if IS_PI1 is True:
 else:
     decoder = SPPDecoder(101)
     id = 102
-    radio = RXTX(tx_apid=102,gain_rx=10, sample_rate=500e3, samples_pr_bit=16, down_sample_factor=2)
+    radio = RXTX(tx_apid=102, sample_rate=500e3, samples_pr_bit=16, down_sample_factor=2)
 
 case = None
 packet_count = 0
 timestamp = 0
 msg = "gain"
+msg_start = ""
 test_sync_msg = "start"
 max_gain = 85
-current_gain = 43
+current_gain = 0
 data = []
 results = []
 gains = []
 throughputs = []
 
 def GainSelect():
-    global current_gain
+    global current_gain,radio
     if current_gain < max_gain:
-        current_gain += 3
-        radio = RXTX(tx_apid=101,gain_tx=current_gain)
+        current_gain += 1
+        radio = RXTX(tx_apid=101,gain_tx=current_gain, sample_rate=500e3, samples_pr_bit=16, down_sample_factor=2)
         radio.transmit(str(current_gain))
     else:
         quit()
@@ -60,8 +61,11 @@ while True:
                 data_start = recv_data(radio, decoder)
                 if data_start is None:
                     print("Received none instead of start")
-                    continue
-                msg_start,idk = data_start
+                    radio.transmit(str(current_gain))
+                    #continue
+                    msg_start = ""
+                else:
+                    msg_start,idk = data_start
                 if msg_start == "start":
                     while True:
                         print("Starting spam")
@@ -76,40 +80,32 @@ while True:
                         packet_count = 0
                         break
                 elif (time() - timeout) < 9:
+                    
                     print(f"No start received at {current_gain} dB, increasing gain")
     else: #RX
         while current_gain < max_gain:
             data_ng = recv_data(radio, decoder)
             if data_ng is None:
-                print("None at new gain")
                 continue
-            packet,idk = data_ng
+            packet, idk = data_ng
             packet = to_int(packet)
-            print(packet)
+            if packet is None:
+                continue
             current_gain = packet
             print(f"Received new gain: {current_gain} dB, starting test")
-            print("Sending start")
-            radio.transmit("start")
-            print("Starting...")
+
+            # Keep sending "start" until we see data coming back
             start_time = time()
             while (time() - start_time) < duration:
-                #sleep(8) # Fjerner de 6 sek, hvor der ikke kom data
+                radio.transmit("start")         # retransmit "start" each loop
                 data_res = recv_data(radio, decoder)
                 if data_res is None:
-                    print("Is none at results")
                     continue
-                result ,idk = data_res
-                print(result)
-                if  result == msg:
+                result, idk = data_res
+                if result == msg:
                     timestamp = time() - start_time
-                    print(f"Time: {timestamp} packet: {len(data)}")
                     data.append(timestamp)
-            print(f"Stopping current test...")
-            packet_count = 0
-            throughput = (len(data) * (6 + len(msg)) * 8) / max(data)
-            results.append([current_gain, throughput])
-            data = []                #results.append([current_gain,data,])
-        print("Test ended")
-        np.savetxt(f"results_gainSweepLowRXGain.csv", results, delimiter=",", header="gain,throughput", comments="")
-        break
+                # once data is flowing, stop sending "start"
+                elif result == str(current_gain):
+                    continue  # Pi1 still announcing gain, keep sending start
                 
