@@ -31,7 +31,7 @@ class SDR:
         self.usrp.set_clock_source("internal")
         self.usrp.set_time_source("internal")
         self.usrp.set_time_now(uhd.types.TimeSpec(0.0))
-        time.sleep(10)  # Time to lock, and "warmup" time 
+        time.sleep(10)  # Time to lock, and "warmup" time
         print("SDR setup done")
 
     def set_channel_rx2(self):
@@ -43,7 +43,8 @@ class SDR:
             self.usrp.set_rx_antenna('TX/RX', chan)
 
     def setup_receiving(self):
-        st_args = uhd.usrp.StreamArgs("fc32", "sc8") #Required, as dual stream is too much data for the poor Pi's USB controller
+        # Required, as dual stream is too much data for the poor Pi's USB controller
+        st_args = uhd.usrp.StreamArgs("fc32", "sc8")
         st_args.channels = self.channels
         self.rx_streamer = self.usrp.get_rx_stream(st_args)
 
@@ -93,15 +94,16 @@ class SDR:
             print(f"RX error: {self.rx_metadata.error_code}")
         if error == uhd.types.RXMetadataErrorCode.timeout:
             print(f"Timeout — has_time_spec: {self.rx_metadata.has_time_spec}, "
-            f"out_of_sequence: {self.rx_metadata.out_of_sequence}, "
-            f"end_of_burst: {self.rx_metadata.end_of_burst}")
+                  f"out_of_sequence: {self.rx_metadata.out_of_sequence}, "
+                  f"end_of_burst: {self.rx_metadata.end_of_burst}")
+        if error == uhd.types.RXMetadataErrorCode.late:
+            print("WARNING: Stream command was late — increase TimeSpec delay")
         return num_samps
 
     def setup_transmit(self):
         st_args = uhd.usrp.StreamArgs("fc32", "sc16")
         st_args.channels = self.channels
         self.tx_streamer = self.usrp.get_tx_stream(st_args)
-
 
         # Continuous loop transmission
         self.tx_metadata = uhd.types.TXMetadata()
@@ -114,5 +116,3 @@ class SDR:
             self.tx_streamer.send(samples_2d, self.tx_metadata)
         else:
             self.tx_streamer.send(samples, self.tx_metadata)
-        
-    
