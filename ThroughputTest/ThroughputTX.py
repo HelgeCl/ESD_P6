@@ -38,7 +38,7 @@ while True:
                         packet_count += 1
                         print(f"Time: {timestamp} packet: {packet_count}")
                         #start_tracing()
-                        radio.transmit(str(packet_count))
+                        radio.transmit(str(packet_count),repeat=1)
                         #stop_tracing()
                         #show_tree() # print the tree to console
                     print("Stopping spam")
