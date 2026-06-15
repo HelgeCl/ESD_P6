@@ -11,7 +11,7 @@ IS_PI1 = (gethostname() == "pi1")
 
 threshold = 5
 
-duration = 60 # seconds
+duration = 62 # seconds
 
 
 
@@ -28,19 +28,23 @@ timestamp = 0
 print("Waiting for start command")
 while True:
     if IS_PI1:
-            if recv_data(radio, decoder) == "start":
-                while True:
-                    print("Starting spam")
-                    sleep(0.1)  # Ensure Pi2 is in recv mode
-                    start_time = time()
-                    while (time() - start_time) < duration:
-                        timestamp = time() - start_time
-                        packet_count += 1
-                        print(f"Time: {timestamp} packet: {packet_count}")
-                        #start_tracing()
-                        radio.transmit(str(packet_count),repeat=1)
-                        #stop_tracing()
-                        #show_tree() # print the tree to console
-                    print("Stopping spam")
-                    packet_count = 0
+            data = recv_data(radio, decoder) 
+            if data is None:
+                print("No work")
+                continue
+            packet,esprit = data
+            if packet == "start":
+                print("Starting spam")
+                sleep(0.1)  # Ensure Pi2 is in recv mode
+                start_time = time()
+                while (time() - start_time) < duration:
+                    timestamp = time() - start_time
+                    packet_count += 1
+                    print(f"Time: {timestamp} packet: {packet_count}")
+                    #start_tracing()
+                    radio.transmit(str(packet_count),repeat = 1)
+                    #stop_tracing()
+                    #show_tree() # print the tree to console
+                print("Stopping spam")
+                packet_count = 0
                 
