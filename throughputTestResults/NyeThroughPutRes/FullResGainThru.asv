@@ -1,0 +1,21 @@
+clc; clear; close all;
+
+% --- Load Data ---
+Data   = readtable('packets_grpNySatTest.csv');
+noReception = linspace(0,45,45);
+noReceptionData
+for i = length(noReception)
+    Data = [Data;noReception(i)];
+end
+
+% --- Plot ---
+figure('Name', 'Throughput vs Gain', 'Color', 'w');
+ax = axes; hold on; grid on;
+
+plot(ax, Data.gain,   Data.throughput,   '-', 'LineWidth', 1.5, 'DisplayName', 'Mid Word');
+
+% --- Formatting ---
+xlabel('Gain [-]');
+ylabel('Throughput [b/s]');
+title('Throughput vs Gain');
+legend(ax, 'Location', 'northwest');

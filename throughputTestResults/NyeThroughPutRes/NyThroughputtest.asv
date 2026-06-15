@@ -1,0 +1,69 @@
+%% Packet Analysis Script - Packet Graph Only
+% Loads up to 30 CSV files (packets_grpNoRepeat0.csv ... packets_grpNoRepeat29.csv),
+% and plots the cumulative received packets over time against the expectation.
+%
+% Each CSV must have two columns:
+%   time         - elapsed time in seconds (cumulative, one row per packet burst)
+%   packet_count - cumulative number of packets received so far
+%
+% ── Configuration ─────────────────────────────────────────────────────────────
+DATA_DIR               = './';                         % folder containing the CSVs
+FILE_PATTERN           = 'packets_grpNoRepeatNyTest%d.csv';  % %d -> run index 0-29
+NUM_RUNS               = 30;                           % files numbered 0 ... 29
+TOTAL_EXPECTED_PACKETS = 1225;                         % adjust for your experiment
+msgLength = 10; % Bytes
+% ──────────────────────────────────────────────────────────────────────────────
+
+%% Load all available runs
+numLoaded    = 0;
+missingFiles = [];
+
+maxTime_all = NaN(1, NUM_RUNS);
+timeSeries  = cell(1, NUM_RUNS);
+countSeries = cell(1, NUM_RUNS);
+
+times = [];
+counts = [];
+
+for i = 0:(NUM_RUNS - 1)
+    fname = fullfile(DATA_DIR, sprintf(FILE_PATTERN, i));
+
+    if ~isfile(fname)
+        missingFiles(end+1) = i; %#ok<SAGROW>
+        continue
+    end
+
+    try
+        tbl = readtable(fname);
+    catch
+        fprintf('  [skip] %s: could not read file\n', fname);
+        continue
+    end
+
+    idx = i + 1; % MATLAB 1-based index
+
+    times   = [times max(tbl.time)];
+    counts = [counts max(tbl.packet_count)];
+
+    numLoaded = numLoaded + 1;
+end
+
+if numLoaded == 0
+    error('No valid CSV files found. Check DATA_DIR and FILE_PATTERN.');
+end
+
+if ~isempty(missingFiles)
+    fprintf('Note: %d file(s) missing. Plotting average across %d active run(s).\n\n', ...
+        length(missingFiles), numLoaded);
+end
+
+avgTime = mean(times);
+avg_Count = mean(counts);
+
+Throughput_PPS = avg_Count/avgTime;
+Throughput_BPS = Throughput_PPS*(msgLength*8);
+PER = avg_Count/TOTAL_EXPECTED_PACKETS;
+
+fprintf('Throughput (Packets/Sec): %f \n', Throughput_PPS);
+fprintf('Throughput (Packets/Sec): %f \n', Throughput_PPS);
+fprintf('Throughput (Packets/Sec): %f \n', Throughput_PPS);
