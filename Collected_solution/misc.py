@@ -25,6 +25,8 @@ def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5, 
         return False
     msg, _ = data
     if msg == ack_string:
+        if output_string:
+            return (True, msg)
         return True
     if output_string:
         return (False, msg)
