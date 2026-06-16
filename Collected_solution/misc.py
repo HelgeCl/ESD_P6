@@ -6,7 +6,6 @@ from Git.ESD_P6.Comm.SPPDecoder import SPPDecoder
 def recv_data(radio: RXTX, decoder: SPPDecoder, timeout: float = 5):
     "Only returns a single message"
     data = radio.receive(timeout=timeout)
-    print("packet received:", data)
     if data is not None:
         stream, esprit_data = data
         for package in stream:
@@ -26,6 +25,8 @@ def check_ack(radio: RXTX, decoder: SPPDecoder, ack_string, timeout: float = 5, 
         return False
     msg, _ = data
     if msg == ack_string:
+        if output_string:
+            return (True, msg)
         return True
     if output_string:
         return (False, msg)
