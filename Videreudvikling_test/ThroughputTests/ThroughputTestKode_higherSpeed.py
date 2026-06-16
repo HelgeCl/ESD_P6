@@ -16,12 +16,13 @@ IS_PI1 = (gethostname() == "pi1")
 
 threshold = 5
 test_num = 0 #Current test
-num_test = 30 #Number of tests to run
+num_test = 1 #Number of tests to run
 duration = 60 # seconds
 test_data = []
 lost_data = []
 test_results = np.empty((0,3))
 lost_packet_count = 0
+packet_count = 0
 prev_packet = int(0)
 timestamp = 0
 
@@ -41,7 +42,19 @@ def to_int(value):
     except (ValueError, TypeError):
         return None  # or a default, or re-raise
 
-
+def fast_recv(timeout:int = 1):
+    decodes = []
+    data = radio.receive_fast(timeout=timeout)
+    if data is not None:
+        for item in data:
+            stream = item
+            for package in stream:
+                decoded_msg = decoder.decode(package)
+                if decoded_msg is not None:
+                    decoded_msg = bytes.fromhex(decoded_msg['data']).decode('ascii', errors='replace')
+                    if decoded_msg != "":
+                        decodes.append(decoded_msg)
+        return decodes
 
 if IS_PI1: #TX
     print("Waiting for start command")
@@ -60,7 +73,7 @@ if IS_PI1: #TX
                 packet_count += 1
                 #print(f"Time: {timestamp} packet: {packet_count}")
                 #start_tracing()
-                radio.transmit(str(packet_count),repeat = 2)
+                radio.transmit(str(packet_count),repeat = 1)
                 #stop_tracing()
                 #show_tree() # print the tree to console
             print(f"Time: {timestamp} packets: {packet_count}")
@@ -70,21 +83,22 @@ if IS_PI1: #TX
 else: #RX
     for i in range(num_test):
         print("Sending start")
-        radio.transmit("start")
+        radio.transmit("start", 10)
         print("Starting...")
         start_time = time()
+        radio.sdr.setup_receiving()
         radio.sdr.start_receive_cont()
         while (time() - start_time) < duration:
             #print(f"Runtime: {time()-start_time}")
             #start_tracing()
-            data = recv_data(radio, decoder)
+            data = fast_recv()
             #stop_tracing()
             #show_tree() # print the tree to console
             if data is None:
                 #print("No work")
                 continue
             for item in data:
-                packet,esprit = data
+                packet = item
                 if  packet is not None:
                     timestamp = time() - start_time
                     #print(f"Time: {timestamp} packet: {packet}")

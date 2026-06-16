@@ -139,6 +139,112 @@ class RXTX:
         # NB monotonic clock is used instead of time.time() as this doesnt depend on system time
         # Which means it only goes forward, however if using time() and a system clock update happend
         # e..g 5 minutes backwards, the deadline would last an additional 5 minuts
+        self.sdr.start_receive_cont()
+
+        while time.monotonic() < deadline:
+            # self.new_buffer.fill(0)  # Dont really know why, but if we do not reset buffer
+            # Issues arrise
+            num_samps = self.sdr.receive_cont_samples(self.new_buffer_2D)
+            if num_samps == 0:
+                continue
+
+            full_2D_buffer = np.concatenate(
+                (wrap_over, self.new_buffer_2D[:, :num_samps]), axis=1)  # Insert wrap over
+
+            # Use the last part of the buffer for wrapover
+            wrap_over = full_2D_buffer[:, -required_len*self.ds:]
+            self.new_buffer = full_2D_buffer[0, :]  # SDR forces us to pull a 2D buffer
+            # However we only need a 1D buffer
+            new_buffer_ds = self.new_buffer[::self.ds]  # Downsample the received buffer
+
+            corrected_data = self.correct_and_find_starts(new_buffer_ds, barker)
+            if corrected_data is None:
+                continue  # loop skip (unusable data)
+            indices, sig_cfo_corrected, mag_corr, corr, cfo_est = corrected_data
+
+            rtn = []
+
+            # Detect only ONE start for every packet
+            # Indices will have a lump of data, then a gap, then a new lump of data.
+            # This is due to the barker seires being well correlated for a few samples, then a message, then a new barker comes
+            # While also is well correlated
+
+            # The goal is therefore to group these lumps together
+
+            # Find gaps between indices to separate different potential packets
+            # Calculates the difference between two successive elements
+            diffs = np.diff(indices)
+            # i.e. diff[1,2,10,5] = [2-1, 10-2, 5-10] = [1, 8, -5]
+            # I.e. Output then shows, how many big the gap between indices is:
+            # E.g. barker 1 results in indices 5,6,7,8,9,10
+            # Barker 2 is 20,21,22,23,24,25
+            # results in : 1,1,1,1,1,10,1,1,1,1
+
+            # The goal is now to find indices, where the spacing/gap is larger than the length of the barker
+            is_new_packet = diffs > len(barker)
+
+            # Is_new_packet now cotains an array, with the same length as indices, but with "true and false" (0,1) values.
+            # With "True", at the first indice for a new packet
+            # Converting this to indices:
+            # (Remember diff causes a skip of one element. Therefore we skip the first indices with indices[1:])
+            new_packet_starts = indices[1:][is_new_packet]
+            # new_packet_starts now contains the indices which corresponds to a new packet start
+            # However it is missing the first element (due to the diff skipping the first element)
+            # This first element is 100% sure a start of a packet, and should therefore be included
+            # (We are sure of this, as it is the first time the barker correlates)
+            starts = np.concatenate(([indices[0]], new_packet_starts))
+
+            for start_idx in starts:
+                # Make a window, from start index with the length of barker
+                # with safety limit to not read outside mag_corr. NB if mag_corr is used, the next if statement will fail
+                # And we'll get the packet next sample
+                window_end = min(start_idx + len(barker), len(mag_corr))
+
+                # Detect the peak index within this window
+                peak = start_idx + np.argmax(mag_corr[start_idx:window_end])
+
+                # Ensure that the entire packet is inside the signal
+                if peak + required_len < len(sig_cfo_corrected):
+                    # Calculate offset based on known the first value of barker is a 1
+                    phase_offset = np.angle(corr[peak])
+                    # Calculate index for first bit in the actual packet
+                    start_bit_idx = peak + len(barker) + (self.samples_pr_bit_ds // 2)
+                    # NB this index is places in the center of the samples. This ensures we are measuring in the stable region and not the transision
+
+                    bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
+                                                    start_bit_idx, length)
+                    rtn.append(bits)
+                    # When at this point, we know that data has been found and we should return
+                    # Therefore we stop receiving samples
+                    self.sdr.stop_receive_cont()
+                    return (rtn, (full_2D_buffer[:, peak*self.ds:(peak+length)*self.ds], cfo_est, phase_offset))
+            if rtn != []:  # Sanity check
+                return rtn
+        # Timed out without finding a packet
+        self.sdr.stop_receive_cont()
+        return None
+
+    def receive_fast(self, length: int = 256, timeout: float = 5.0):
+        """
+        Receive a message, listening for up to `timeout` seconds.
+        if length is larger than 20000 bits, call recv_buffer before with an appropiate size
+        """
+        if self.last_state != 'RX':
+            self.sdr.setup_receiving()
+            self.last_state = 'RX'
+
+        # Calculate barker code:
+        barker = np.repeat(self.barker_base, self.samples_pr_bit_ds)
+
+        # Package length
+        required_len = len(barker) + (length * self.samples_pr_bit_ds)
+
+        # initialize for later use
+        wrap_over = np.empty((self.new_buffer_2D.shape[0], 0), dtype=self.new_buffer_2D.dtype)
+        deadline = time.monotonic() + timeout  # Implement a deadline time
+        # NB monotonic clock is used instead of time.time() as this doesnt depend on system time
+        # Which means it only goes forward, however if using time() and a system clock update happend
+        # e..g 5 minutes backwards, the deadline would last an additional 5 minuts
         while time.monotonic() < deadline:
             # self.new_buffer.fill(0)  # Dont really know why, but if we do not reset buffer
             # Issues arrise
@@ -211,7 +317,7 @@ class RXTX:
 
                     bits = self.__bit_extraction(sig_cfo_corrected, phase_offset,
                                                  start_bit_idx, length)
-                    rtn.append(bits)
+                    rtn.append(bits, "_")
                     # When at this point, we know that data has been found and we should return
                     # Therefore we stop receiving samples
             if rtn != []:  # Sanity check
